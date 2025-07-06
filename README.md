@@ -1,2 +1,1 @@
-# .github
-README.md for your public organization profile
+# Alpin Insight AI
