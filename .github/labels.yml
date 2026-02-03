@@ -1,0 +1,63 @@
+# Organization-wide label definitions
+# These labels are synced to all repositories in the alpininsight organization
+# via the sync-labels.yml workflow
+
+# Issue Types
+- name: bug
+  color: "d73a4a"
+  description: Something isn't working
+
+- name: enhancement
+  color: "a2eeef"
+  description: New feature or request
+
+- name: documentation
+  color: "0075ca"
+  description: Improvements or additions to documentation
+
+- name: question
+  color: "d876e3"
+  description: Further information is requested
+
+# Code Changes
+- name: refactor
+  color: "fbca04"
+  description: Code restructuring without behavior change
+
+- name: performance
+  color: "0e8a16"
+  description: Performance improvements
+
+- name: security
+  color: "d93f0b"
+  description: Security-related issues
+
+- name: breaking-change
+  color: "b60205"
+  description: Breaking changes requiring migration
+
+# Maintenance
+- name: chore
+  color: "c5def5"
+  description: Maintenance tasks
+
+- name: ci
+  color: "5319e7"
+  description: CI/CD related
+
+- name: dependencies
+  color: "0366d6"
+  description: Dependency updates
+
+# Workflow
+- name: duplicate
+  color: "cfd3d7"
+  description: This issue or pull request already exists
+
+- name: good first issue
+  color: "7057ff"
+  description: Good for newcomers
+
+- name: help wanted
+  color: "008672"
+  description: Extra attention is needed
