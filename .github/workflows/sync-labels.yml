@@ -1,0 +1,110 @@
+# Sync labels across all organization repositories
+# Runs on:
+#   - Push to labels.yml (automatic sync)
+#   - Manual trigger (workflow_dispatch)
+#   - Weekly schedule (catch new repos)
+
+name: Sync Labels
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/labels.yml"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (no changes)"
+        required: false
+        default: "false"
+        type: boolean
+  schedule:
+    # Run weekly on Sundays at 00:00 UTC to catch new repos
+    - cron: "0 0 * * 0"
+
+jobs:
+  sync-labels:
+    name: Sync labels to all repos
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install yq
+        uses: mikefarah/yq@v4
+
+      - name: Get all organization repositories
+        id: get-repos
+        env:
+          GH_TOKEN: ${{ secrets.ORG_LABEL_SYNC_TOKEN }}
+        run: |
+          # Get all non-archived, non-fork repos in the organization
+          repos=$(gh repo list alpininsight --no-archived --source --json name --limit 100 -q '.[].name')
+          echo "repos<<EOF" >> $GITHUB_OUTPUT
+          echo "$repos" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          echo "Found repositories:"
+          echo "$repos"
+
+      - name: Sync labels to each repository
+        env:
+          GH_TOKEN: ${{ secrets.ORG_LABEL_SYNC_TOKEN }}
+          DRY_RUN: ${{ inputs.dry_run || 'false' }}
+        run: |
+          set -e
+
+          # Read label definitions
+          labels_file=".github/labels.yml"
+
+          if [ ! -f "$labels_file" ]; then
+            echo "Error: $labels_file not found"
+            exit 1
+          fi
+
+          # Parse repos from previous step
+          repos="${{ steps.get-repos.outputs.repos }}"
+
+          for repo in $repos; do
+            echo ""
+            echo "========================================"
+            echo "Processing: alpininsight/$repo"
+            echo "========================================"
+
+            if [ "$DRY_RUN" = "true" ]; then
+              echo "[DRY RUN] Would sync labels to alpininsight/$repo"
+              continue
+            fi
+
+            # Get existing labels in the repo
+            existing_labels=$(gh label list --repo "alpininsight/$repo" --json name -q '.[].name' 2>/dev/null || echo "")
+
+            # Process each label from the config
+            yq e '.[] | [.name, .color, .description] | @tsv' "$labels_file" | while IFS=$'\t' read -r name color description; do
+              # Check if label exists
+              if echo "$existing_labels" | grep -qx "$name"; then
+                # Update existing label
+                echo "  Updating: $name"
+                gh label edit "$name" \
+                  --repo "alpininsight/$repo" \
+                  --color "$color" \
+                  --description "$description" 2>/dev/null || true
+              else
+                # Create new label
+                echo "  Creating: $name"
+                gh label create "$name" \
+                  --repo "alpininsight/$repo" \
+                  --color "$color" \
+                  --description "$description" 2>/dev/null || true
+              fi
+            done
+
+            echo "  ✓ Done"
+          done
+
+          echo ""
+          echo "========================================"
+          echo "Label sync complete!"
+          echo "========================================"
