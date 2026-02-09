@@ -1,0 +1,6 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability report
+    url: mailto:security@alpininsight.com
+    about: Report security issues privately, not in public issues.
+
