@@ -1,0 +1,13 @@
+{
+  "name": "GitVersion",
+  "description": "Calculate SemVer metadata for main/develop and publish a CI summary.",
+  "iconName": "octicon-tag",
+  "categories": [
+    "Continuous integration",
+    "Deployment"
+  ],
+  "filePatterns": [
+    "^GitVersion\\.yml$"
+  ]
+}
+

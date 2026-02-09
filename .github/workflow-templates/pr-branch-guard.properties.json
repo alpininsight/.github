@@ -1,0 +1,9 @@
+{
+  "name": "PR Branch Guard",
+  "description": "Enforce branch routing policy for pull requests (feature/fix/etc -> develop, develop -> main).",
+  "iconName": "octicon-git-pull-request",
+  "categories": [
+    "Automation",
+    "Continuous integration"
+  ]
+}

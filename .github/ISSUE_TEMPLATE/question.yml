@@ -1,0 +1,24 @@
+name: Question
+description: Ask for clarification on usage, policy, or behavior
+title: "[question]: "
+labels:
+  - question
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: What do you need clarified?
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: What have you already tried?
+  - type: input
+    id: version
+    attributes:
+      label: Version / commit
+      description: If applicable, include a tag, branch, or commit SHA
+
