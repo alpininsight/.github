@@ -24,3 +24,5 @@ Organization-level GitHub defaults and standards for all repositories in `alpini
 
 - Keep these files generic and organization-wide.
 - Repository-specific ownership (`CODEOWNERS`) and delivery pipelines should stay in each individual repository.
+
+Copyright 2026 Alpin Insight Solutions GmbH & Co. KG
