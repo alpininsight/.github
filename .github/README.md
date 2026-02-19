@@ -13,6 +13,7 @@ This folder contains organization-wide GitHub defaults and templates.
 - Organisms
   - Automation standards:
     - `.github/workflow-templates/` for new repository bootstrap
+      - Includes `release-pr-auto-merge.yml` for release-please automation
     - `.github/workflows/sync-labels.yml` for org label sync
 
 ## Labels

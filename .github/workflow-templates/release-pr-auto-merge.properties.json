@@ -1,0 +1,10 @@
+{
+  "name": "Release PR auto-merge",
+  "description": "Automatically approve and merge release-please pull requests after required checks pass.",
+  "iconName": "octicon-git-merge",
+  "categories": [
+    "Automation",
+    "Continuous integration",
+    "Deployment"
+  ]
+}
