@@ -1,0 +1,76 @@
+name: Infrastructure change
+description: Request infrastructure provisioning, tooling, or configuration changes
+title: "[infra]: "
+labels:
+  - infrastructure
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What infrastructure change is needed and why?
+      placeholder: A clear description of the change and its motivation
+    validations:
+      required: true
+  - type: checkboxes
+    id: components
+    attributes:
+      label: Affected components
+      description: Select all that apply
+      options:
+        - label: Cloud VMs (provisioning, packages, configuration)
+        - label: Local dev VMs (Lima, Hyper-V)
+        - label: Ansible playbooks / roles
+        - label: Network (Headscale, Tailscale, DNAT, firewall)
+        - label: Kubernetes (nodes, storage, CNI)
+        - label: CI/CD (GitHub Actions, workflows)
+        - label: DNS / CDN (Cloudflare)
+        - label: Secrets / certificates
+  - type: dropdown
+    id: environments
+    attributes:
+      label: Target environments
+      description: Which environments are affected?
+      multiple: true
+      options:
+        - Dev (local)
+        - Dev (cloud)
+        - Staging
+        - Production
+        - All
+    validations:
+      required: true
+  - type: textarea
+    id: plan
+    attributes:
+      label: Implementation plan
+      description: Steps to implement the change
+      placeholder: |
+        1. Add package to Ansible role ...
+        2. Run playbook against ...
+        3. Verify with ...
+    validations:
+      required: true
+  - type: textarea
+    id: rollback
+    attributes:
+      label: Rollback plan
+      description: How to revert if something goes wrong?
+      placeholder: Describe rollback steps or state "no rollback needed" with justification
+  - type: textarea
+    id: verification
+    attributes:
+      label: Verification
+      description: How to verify the change works?
+      placeholder: |
+        - [ ] Run `ansible-playbook site.yml --check` (dry run)
+        - [ ] Verify package installed: `dpkg -l | grep socat`
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I checked that this change does not conflict with existing configuration.
+          required: true
+        - label: I considered the impact on all target environments.
+          required: true
