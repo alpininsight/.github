@@ -47,6 +47,18 @@ body:
     attributes:
       label: Logs or stack trace
       render: shell
+  - type: textarea
+    id: regression
+    attributes:
+      label: Regression test
+      description: |
+        Should this fix be guarded by a regression test? If yes, describe the
+        assertion and a diagnostic hint to display when it fails.
+        See: memories/patterns/regression-test-patterns.md
+      placeholder: |
+        Assertion: "Script must NOT use ping for VIP detection"
+        Hint: "MetalLB VIPs filter ICMP -- use curl --connect-timeout instead"
+        Lesson: MetalLB VIPs do not respond to ICMP ping
   - type: checkboxes
     id: checks
     attributes:
@@ -56,4 +68,4 @@ body:
           required: true
         - label: I removed secrets and private data from logs.
           required: true
-
+        - label: I considered whether a regression test should guard this fix.
