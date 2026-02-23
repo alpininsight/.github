@@ -7,6 +7,7 @@ consistently across repos with and without branch protection rules.
 ## Table of Contents
 
 - [Changelog Workflow](#changelog-workflow)
+- [Monorepo Version Manifests](#monorepo-version-manifests)
 - [GitVersion Configuration](#gitversion-configuration)
 - [Required Secrets](#required-secrets)
 - [Repository Settings](#repository-settings)
@@ -55,6 +56,49 @@ without required checks.
 | PR created but not merged | Auto-merge not enabled + required checks exist | Enable "Allow auto-merge" in repo Settings > General |
 | `Auto-merge unavailable, attempting direct merge` then fails | Required checks block direct merge | Enable auto-merge in repo settings |
 | Changelog not updating | `cliff.toml` missing or misconfigured | Ensure `cliff.toml` exists in repo root |
+
+---
+
+## Monorepo Version Manifests
+
+**Template file:** `.github/workflows/monorepo-version-manifests.yml`  
+**Reusable backend:** `alpininsight/.github/.github/workflows/monorepo-version-manifests-reusable.yml@main`
+
+Generates per-component version artifacts for monorepos that keep projects
+under `projects/*`.
+
+### How It Works
+
+1. **Trigger:** Push/PR to `develop` or `main` when project/versioning paths change.
+2. **Detect:** Determines affected components from diff or manual dispatch inputs.
+3. **Version:** Runs GitVersion and computes SemVer metadata.
+4. **Emit:** Uploads artifacts per component:
+   - `artifacts/version-manifests/<component>.json`
+   - `artifacts/version-manifests/<component>.release.env`
+
+### Manual Inputs (`workflow_dispatch`)
+
+| Input | Description | Default |
+|-------|-------------|---------|
+| `components` | Comma-separated component list (`hf_models,memadvisor`) | empty (auto-detect) |
+| `force_all` | Build manifests for all components under `projects/` | `false` |
+
+### Key Design Decisions
+
+| Decision | Rationale |
+|----------|-----------|
+| Reusable workflow in org `.github` repo | Central logic, less drift across repositories |
+| Component detection from `projects/*` directories | No hardcoded component list in template |
+| JSON + `.env` artifact output | Supports runtime file ingestion and CI handoffs |
+| Run on PR and push | Early validation before merge and post-merge continuity |
+
+### Troubleshooting
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| Workflow reports no component changes | Paths outside `projects/*` and no global versioning file changes | Use `workflow_dispatch` with `components` or `force_all=true` |
+| Unknown component warning on dispatch | Name does not match a directory under `projects/` | Use exact folder names |
+| No artifacts uploaded | `GitVersion.yml` missing or invalid | Add/fix `GitVersion.yml` in repo root |
 
 ---
 
@@ -166,6 +210,8 @@ correctly.
 |--------|---------|-------------|
 | `CHANGELOG_BOT_TOKEN` | Fine-grained PAT for changelog PR creation and merge | changelog.yml |
 
+The monorepo version-manifest workflow does not require additional secrets.
+
 ### Creating the PAT
 
 1. Go to GitHub Settings > Developer settings > Personal access tokens > Fine-grained tokens
@@ -208,3 +254,4 @@ When adding these workflows to a new repo:
 - [ ] Add `CHANGELOG_BOT_TOKEN` secret to the repo
 - [ ] Enable "Allow auto-merge" in repo settings (recommended)
 - [ ] Verify `prevent-increment-of-merged-branch-version: false` on `main` branch
+- [ ] For monorepos with `projects/*`: copy `monorepo-version-manifests.yml`

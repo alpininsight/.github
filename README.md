@@ -17,7 +17,7 @@ Organization-level GitHub defaults and standards for all repositories in `alpini
 
 - Atoms: policy documents (`CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`, `SUPPORT.md`)
 - Molecules: collaboration templates (`.github/ISSUE_TEMPLATE/*`, `.github/PULL_REQUEST_TEMPLATE/*`)
-- Organisms: automation templates (`.github/workflow-templates/*`, `.github/workflows/sync-labels.yml`)
+- Organisms: automation templates (`.github/workflow-templates/*`) and reusable workflows (`.github/workflows/*`)
 - Templates: repository bootstrap standards and examples in `.github/README.md`
 
 ## Workflow templates
@@ -30,6 +30,7 @@ documentation, troubleshooting, and adoption checklist.
 |----------|---------|---------------|
 | `changelog.yml` | Auto-generate CHANGELOG.md via git-cliff with PR-based auto-merge | `cliff.toml`, `CHANGELOG_BOT_TOKEN` org secret |
 | `gitversion.yml` | Calculate SemVer metadata from conventional commits | `GitVersion.yml` in repo root |
+| `monorepo-version-manifests.yml` | Generate per-component version manifest artifacts for `projects/*` monorepos | `GitVersion.yml`, `projects/<component>/` layout |
 | `pr-branch-guard.yml` | Enforce branch naming conventions on PRs | -- |
 | `release-pr-auto-merge.yml` | Auto-merge release PRs after checks pass | -- |
 
@@ -40,6 +41,7 @@ documentation, troubleshooting, and adoption checklist.
 - [ ] Ensure `GitVersion.yml` exists with `prevent-increment-of-merged-branch-version: false` on `main`
 - [ ] Verify `CHANGELOG_BOT_TOKEN` org secret is accessible (visibility: ALL)
 - [ ] Enable "Allow auto-merge" in repo Settings > General (recommended)
+- [ ] For monorepos: copy `monorepo-version-manifests.yml` and keep components under `projects/*`
 
 ### Currently synchronized repositories
 
