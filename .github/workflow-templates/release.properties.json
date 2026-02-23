@@ -1,0 +1,12 @@
+{
+  "name": "Release",
+  "description": "Auto-versioning with GitVersion — creates GitHub Releases on push to main with workflow_dispatch fallback.",
+  "iconName": "octicon-tag",
+  "categories": [
+    "Continuous integration",
+    "Automation"
+  ],
+  "filePatterns": [
+    "^GitVersion\\.yml$"
+  ]
+}
