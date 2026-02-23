@@ -137,7 +137,26 @@ jobs:
             fi
 
             if [[ -n "$base_sha" ]]; then
-              mapfile -t changed_paths < <(git diff --name-only "$base_sha" "$head_sha")
+              if git rev-parse --verify --quiet "${base_sha}^{commit}" >/dev/null \
+                && git rev-parse --verify --quiet "${head_sha}^{commit}" >/dev/null; then
+                changed_paths_file="$(mktemp)"
+                if git diff --name-only "$base_sha" "$head_sha" > "$changed_paths_file" 2>/dev/null; then
+                  mapfile -t changed_paths < "$changed_paths_file"
+                else
+                  echo "::warning::git diff failed for base '$base_sha' and head '$head_sha'; selecting all components."
+                  changed_paths=()
+                  for component in "${known_components[@]}"; do
+                    add_component "$component"
+                  done
+                fi
+                rm -f "$changed_paths_file"
+              else
+                echo "::warning::Base/head SHA not available locally (base='$base_sha', head='$head_sha'); selecting all components."
+                changed_paths=()
+                for component in "${known_components[@]}"; do
+                  add_component "$component"
+                done
+              fi
             else
               mapfile -t changed_paths < <(git ls-files)
             fi
