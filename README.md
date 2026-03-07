@@ -39,6 +39,7 @@ documentation, troubleshooting, and adoption checklist.
 - [ ] Copy `changelog.yml` to `.github/workflows/`
 - [ ] Ensure `cliff.toml` exists in repo root
 - [ ] Ensure `GitVersion.yml` exists with `prevent-increment-of-merged-branch-version: false` on `main`
+- [ ] Ensure `GitVersion.yml` uses `develop` with `tag: alpha` and `increment: Patch` to stay aligned with `main`
 - [ ] Verify `CHANGELOG_BOT_TOKEN` org secret is accessible (visibility: ALL)
 - [ ] Enable "Allow auto-merge" in repo Settings > General (recommended)
 - [ ] For monorepos: copy `monorepo-version-manifests.yml` and keep components under `projects/*`
