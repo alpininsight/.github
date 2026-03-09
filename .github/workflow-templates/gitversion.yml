@@ -1,5 +1,11 @@
 name: GitVersion
 
+# Org release standard:
+#   - Pair this workflow with the GitVersion-based release workflow template
+#   - Do not substitute release-please in new repositories
+# Reference repo:
+#   - insight-lima-k8s-capi
+
 on:
   push:
     branches:
@@ -48,4 +54,3 @@ jobs:
             echo "- BranchName: \`${{ steps.gitversion.outputs.branchName }}\`"
             echo "- Sha: \`${{ steps.gitversion.outputs.sha }}\`"
           } >> "$GITHUB_STEP_SUMMARY"
-

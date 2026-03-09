@@ -1,6 +1,6 @@
 {
   "name": "GitVersion",
-  "description": "Calculate SemVer metadata for main/develop and publish a CI summary.",
+  "description": "Org-standard GitVersion companion workflow for SemVer metadata on main/develop.",
   "iconName": "octicon-tag",
   "categories": [
     "Continuous integration",
@@ -10,4 +10,3 @@
     "^GitVersion\\.yml$"
   ]
 }
-
