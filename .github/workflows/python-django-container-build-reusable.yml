@@ -1,0 +1,137 @@
+---
+name: Python/Django Container Build (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      image_name:
+        description: Full container image name, for example ghcr.io/alpininsight/insight-ui-flow.
+        required: true
+        type: string
+      context:
+        description: Docker build context.
+        required: false
+        type: string
+        default: "."
+      dockerfile:
+        description: Path to the Dockerfile relative to the repository root.
+        required: false
+        type: string
+        default: "Dockerfile"
+      target:
+        description: Optional Docker build target.
+        required: false
+        type: string
+        default: ""
+      platforms:
+        description: Comma-separated Docker platforms.
+        required: false
+        type: string
+        default: "linux/amd64"
+      push:
+        description: Push the image after a successful build.
+        required: false
+        type: boolean
+        default: false
+      build_args:
+        description: Multiline Docker build arguments.
+        required: false
+        type: string
+        default: ""
+      additional_tags:
+        description: Additional docker/metadata-action tag definitions.
+        required: false
+        type: string
+        default: ""
+    secrets:
+      github_read_token:
+        description: Optional read token for private GitHub dependencies during docker build.
+        required: false
+      registry_username:
+        description: Optional registry username for push workflows.
+        required: false
+      registry_password:
+        description: Optional registry password for push workflows.
+        required: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  container_build:
+    name: Container Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Derive registry host
+        id: registry
+        shell: bash
+        run: |
+          image="${{ inputs.image_name }}"
+          host="${image%%/*}"
+          if [[ "$host" == "$image" || ( "$host" != *.* && "$host" != *:* && "$host" != "localhost" ) ]]; then
+            host="docker.io"
+          fi
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+
+      - name: Login to container registry
+        if: ${{ inputs.push }}
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ steps.registry.outputs.host }}
+          username: ${{ secrets.registry_username != '' && secrets.registry_username || github.actor }}
+          password: ${{ secrets.registry_password != '' && secrets.registry_password || secrets.GITHUB_TOKEN }}
+
+      - name: Generate image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ inputs.image_name }}
+          tags: |
+            type=sha,prefix=sha-,format=short
+            type=ref,event=branch
+            ${{ inputs.additional_tags }}
+
+      - name: Build container image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ inputs.context }}
+          file: ${{ inputs.dockerfile }}
+          target: ${{ inputs.target }}
+          platforms: ${{ inputs.platforms }}
+          push: ${{ inputs.push }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            ${{ inputs.build_args }}
+            ${{ secrets.github_read_token != '' && format('GIT_ACCESS_TOKEN={0}', secrets.github_read_token) || '' }}
+
+      - name: Build summary
+        env:
+          IMAGE_NAME: ${{ inputs.image_name }}
+          CONTEXT: ${{ inputs.context }}
+          DOCKERFILE: ${{ inputs.dockerfile }}
+          PLATFORMS: ${{ inputs.platforms }}
+          PUSH_ENABLED: ${{ inputs.push }}
+        run: |
+          echo "## Python/Django Container Build" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Attribute | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|-----------|-------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Image | $IMAGE_NAME |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Context | $CONTEXT |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Dockerfile | $DOCKERFILE |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Platforms | $PLATFORMS |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Push enabled | $PUSH_ENABLED |" >> "$GITHUB_STEP_SUMMARY"
