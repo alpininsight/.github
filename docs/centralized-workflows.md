@@ -339,7 +339,7 @@ jobs:
 
 - Default `push: false` keeps PR validation safe
 - Use the same workflow for publish flows by enabling `push` in the caller
-- For private GitHub dependencies, pass `github_read_token` and wire the Dockerfile to `RUN --mount=type=secret,id=insight_token ...`
+- For private GitHub dependencies, pass `github_read_token`; new Dockerfiles should use `RUN --mount=type=secret,id=insight_token ...`, while the reusable workflow keeps `GIT_ACCESS_TOKEN` build-arg compatibility for older consumers during migration
 - Only `ghcr.io` may use default GitHub credentials; all other registries require explicit `registry_username` and `registry_password`
 - Prefer explicit `paths` filters in the caller so container builds only run when the packaged runtime can actually change
 
