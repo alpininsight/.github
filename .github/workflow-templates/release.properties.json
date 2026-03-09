@@ -1,6 +1,6 @@
 {
   "name": "Release",
-  "description": "Auto-versioning with GitVersion — creates GitHub Releases on push to main with workflow_dispatch fallback.",
+  "description": "Org-standard GitVersion release workflow — creates GitHub Releases on push to main with workflow_dispatch fallback.",
   "iconName": "octicon-tag",
   "categories": [
     "Continuous integration",

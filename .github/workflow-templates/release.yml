@@ -3,6 +3,11 @@
 # Release Workflow - Auto-versioning with GitVersion
 # Triggers on push to main branch, creates releases automatically
 # =============================================================================
+# Org release standard:
+#   - GitVersion is the required release strategy for new repos
+#   - release-please is migration legacy and should not be adopted in new repos
+# Reference repo:
+#   - insight-lima-k8s-capi
 #
 # How it works:
 #   1. Merge PR to main

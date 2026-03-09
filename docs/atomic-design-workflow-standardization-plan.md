@@ -112,7 +112,7 @@ Rule:
 
 | ID | Layer | Scope | Status | PR |
 |----|-------|-------|--------|----|
-| `M1` | Molecule | GitVersion release policy | planned | tbd |
+| `M1` | Molecule | GitVersion release policy | in review | `#14` |
 | `M2` | Molecule | Changelog automation | existing in `.github` | n/a |
 | `M3` | Molecule | Branch guard | existing in `.github` | n/a |
 | `M4` | Molecule | Release backlog advisory | merged | `#11` |
@@ -125,3 +125,4 @@ Rule:
 - 2026-03-09: Plan initialized in `.github`.
 - 2026-03-09: Release strategy reference fixed to `insight-lima-k8s-capi`.
 - 2026-03-09: `release-please` classified as migration legacy, not org standard.
+- 2026-03-09: `M1` opened as PR `#14` to make GitVersion the explicit org release standard.

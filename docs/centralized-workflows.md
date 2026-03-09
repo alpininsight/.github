@@ -8,10 +8,12 @@ required versus optional.
 
 Related planning document:
 - [Atomic Design Workflow Standardization Plan](./atomic-design-workflow-standardization-plan.md)
+- [Release Strategy Standard](./release-strategy-standard.md)
 
 ## Table of Contents
 
 - [Changelog Workflow](#changelog-workflow)
+- [Release Strategy Standard](#release-strategy-standard)
 - [Release Backlog Advisory](#release-backlog-advisory)
 - [Feature CI](#feature-ci)
 - [PR Title Lint](#pr-title-lint)
@@ -20,6 +22,22 @@ Related planning document:
 - [GitVersion Configuration](#gitversion-configuration)
 - [Required Secrets](#required-secrets)
 - [Repository Settings](#repository-settings)
+
+---
+
+## Release Strategy Standard
+
+**Standard:** GitVersion
+**Reference repo:** `insight-lima-k8s-capi`
+
+GitVersion is the organization release standard. New repositories should adopt
+the GitVersion templates from `.github` rather than introducing
+`release-please`.
+
+`release-please` is migration legacy only. Existing repos that still use it are
+temporary exceptions and should be moved onto the GitVersion model.
+
+See the full policy in [Release Strategy Standard](./release-strategy-standard.md).
 
 ---
 
@@ -283,7 +301,8 @@ under `projects/*`.
 **File:** `GitVersion.yml`
 
 All repos use [GitVersion 5.x](https://gitversion.net/) for semantic versioning
-based on conventional commits.
+based on conventional commits. This is the only supported org release
+strategy baseline.
 
 ### Standard Configuration
 
