@@ -13,6 +13,9 @@ Related planning document:
 
 - [Changelog Workflow](#changelog-workflow)
 - [Release Backlog Advisory](#release-backlog-advisory)
+- [Feature CI](#feature-ci)
+- [PR Title Lint](#pr-title-lint)
+- [Scheduled Pre-commit Update](#scheduled-pre-commit-update)
 - [Monorepo Version Manifests](#monorepo-version-manifests)
 - [GitVersion Configuration](#gitversion-configuration)
 - [Required Secrets](#required-secrets)
@@ -132,6 +135,103 @@ release-backlog-advisory:
 - Advisory only: it never fails the build
 - One comment marker: avoids PR comment spam on every push
 - Tree-diff first: matches real release scope better than commit ancestry counts
+
+---
+
+## Feature CI
+
+**Template file:** `.github/workflow-templates/feature-ci.yml`
+
+Runs linting, formatting, and tests on every pull request targeting `main` or
+`develop`.
+
+### How It Works
+
+1. **Trigger:** Pull request opened/updated against `main` or `develop`
+2. **Matrix:** Tests across Python 3.12, 3.13, and 3.14
+3. **Checks:** pre-commit, ruff lint, ruff format, pytest
+4. **Quality Gate:** Summary job that reports pass/fail status
+
+### Key Design Decisions
+
+| Decision | Rationale |
+|----------|-----------|
+| `uv sync --frozen --dev` | Reproducible installs from lockfile |
+| `fail-fast: false` | All Python versions tested even if one fails |
+| `concurrency` with cancel-in-progress | Saves runner minutes on rapid pushes |
+| Separate quality-gate job | Single required check for branch protection |
+| `enable-cache: true` on uv | Faster installs on subsequent runs |
+
+### Adapting for Your Repo
+
+| Customization | How |
+|---------------|-----|
+| Reduce Python versions | Edit the `python-version` matrix |
+| Add Django checks | Add `uv run python manage.py check --deploy --fail-level ERROR` step |
+| Add mypy | Add `uv run mypy .` step (use `\|\| true` until types are added) |
+| Private dependencies | Add git auth step with `INSIGHT_TOKEN_RO` (see visa_statistiken) |
+| Container build | Add a separate job for Docker build verification |
+
+---
+
+## PR Title Lint
+
+**Template file:** `.github/workflow-templates/pr-title-lint.yml`
+
+Validates that pull request titles follow the Conventional Commits specification.
+
+### How It Works
+
+1. **Trigger:** PR opened, reopened, or title edited
+2. **Validation:** Checks title matches `<type>: <description>` or `<type>(scope): <description>`
+3. **Types:** feat, fix, perf, refactor, docs, chore, ci, test, build, style
+4. **Breaking changes:** Allowed via `!` suffix (e.g. `feat!: redesign auth`)
+
+### Key Design Decisions
+
+| Decision | Rationale |
+|----------|-----------|
+| `pull_request_target` (not `pull_request`) | Works with PRs from forks |
+| `requireScope: false` | Scopes are optional but encouraged |
+| `GITHUB_TOKEN` sufficient | Read-only PR access, no anti-cascade issue |
+
+### Adapting for Your Repo
+
+The workflow is identical across all repos. No customization needed.
+
+---
+
+## Scheduled Pre-commit Update
+
+**Template file:** `.github/workflow-templates/scheduled-pre-commit-update.yml`
+
+Runs `pre-commit autoupdate` weekly and creates a PR with version bumps.
+
+### How It Works
+
+1. **Trigger:** Every Monday at 06:00 UTC (or manual dispatch)
+2. **Update:** Runs `uvx pre-commit autoupdate`
+3. **PR Creation:** Creates/updates a PR from `chore/pre-commit-autoupdate` to default branch
+4. **CI Trigger:** Uses `INSIGHT_TOKEN` PAT so CI workflows run on the created PR
+
+### Key Design Decisions
+
+| Decision | Rationale |
+|----------|-----------|
+| `INSIGHT_TOKEN` PAT | `GITHUB_TOKEN` cannot trigger other workflows on PRs it creates (GitHub anti-cascade protection) |
+| Monday schedule | Updates land early in the week, leaving time for review |
+| Fixed branch name | Reuses the same PR if updates accumulate |
+| `chore, ci` labels | Consistent labeling for automated changes |
+
+### Required Secrets
+
+| Secret | Purpose |
+|--------|---------|
+| `INSIGHT_TOKEN` | PAT with `contents: write` and `pull-requests: write` for PR creation |
+
+### Adapting for Your Repo
+
+The workflow is identical across all repos. No customization needed.
 
 ---
 
@@ -294,6 +394,7 @@ later released from `main`.
 | Secret | Purpose | Required By |
 |--------|---------|-------------|
 | `CHANGELOG_BOT_TOKEN` | Fine-grained PAT for changelog PR creation and merge | changelog.yml |
+| `INSIGHT_TOKEN` | PAT for automated PR creation that triggers CI | scheduled-pre-commit-update.yml |
 
 The monorepo version-manifest workflow does not require additional secrets.
 
@@ -333,12 +434,26 @@ For the changelog workflow to work optimally with branch protection:
 
 When adding these workflows to a new repo:
 
+### Core (all repos)
+
 - [ ] Copy `changelog.yml` to `.github/workflows/`
-- [ ] Call `release-backlog-advisory-reusable.yml` from repo CI if the repo uses `develop -> main` releases
+- [ ] Copy `pr-branch-guard.yml` to `.github/workflows/`
+- [ ] Copy `pr-title-lint.yml` to `.github/workflows/`
+- [ ] Copy `release.yml` to `.github/workflows/`
 - [ ] Copy `GitVersion.yml` to repo root
 - [ ] Ensure `cliff.toml` exists (git-cliff configuration)
 - [ ] Add `CHANGELOG_BOT_TOKEN` secret to the repo
 - [ ] Enable "Allow auto-merge" in repo settings (recommended)
 - [ ] Verify `prevent-increment-of-merged-branch-version: false` on `main` branch
+
+### Python repos
+
+- [ ] Copy `feature-ci.yml` to `.github/workflows/` and customize Python matrix
+- [ ] Copy `scheduled-pre-commit-update.yml` to `.github/workflows/`
+- [ ] Verify `INSIGHT_TOKEN` org secret is accessible
+
+### Optional
+
+- [ ] Call `release-backlog-advisory-reusable.yml` from repo CI if the repo uses `develop -> main` releases
 - [ ] For monorepos with `projects/*`: copy `monorepo-version-manifests.yml`
 - [ ] For Django repos or notebook-style Python UIs: add a repo-local container build job to CI so image packaging breaks fail before merge

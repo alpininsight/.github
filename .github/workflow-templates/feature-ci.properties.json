@@ -1,0 +1,12 @@
+{
+  "name": "Feature CI",
+  "description": "Quality checks (lint, format, test) for pull requests using uv, ruff, and pytest.",
+  "iconName": "octicon-check-circle",
+  "categories": [
+    "Continuous integration",
+    "Python"
+  ],
+  "filePatterns": [
+    "^pyproject\\.toml$"
+  ]
+}

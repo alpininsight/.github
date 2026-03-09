@@ -1,0 +1,9 @@
+{
+  "name": "PR Title Lint",
+  "description": "Enforce Conventional Commits format in pull request titles.",
+  "iconName": "octicon-typography",
+  "categories": [
+    "Automation",
+    "Continuous integration"
+  ]
+}
