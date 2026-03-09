@@ -112,11 +112,11 @@ Rule:
 
 | ID | Layer | Scope | Status | PR |
 |----|-------|-------|--------|----|
-| `M1` | Molecule | GitVersion release policy | in review | `#14` |
+| `M1` | Molecule | GitVersion release policy | merged | `#14` |
 | `M2` | Molecule | Changelog automation | existing in `.github` | n/a |
 | `M3` | Molecule | Branch guard | existing in `.github` | n/a |
 | `M4` | Molecule | Release backlog advisory | merged | `#11` |
-| `M5` | Molecule | Python/Django quality reusable workflow | planned | tbd |
+| `M5` | Molecule | Python/Django quality reusable workflow | in review | `#15` |
 | `M6` | Molecule | Python/Django container build reusable workflow | planned | tbd |
 | `M7` | Molecule | `insight-ui-flow` adoption | planned | tbd |
 
@@ -126,3 +126,5 @@ Rule:
 - 2026-03-09: Release strategy reference fixed to `insight-lima-k8s-capi`.
 - 2026-03-09: `release-please` classified as migration legacy, not org standard.
 - 2026-03-09: `M1` opened as PR `#14` to make GitVersion the explicit org release standard.
+- 2026-03-09: `M1` merged as PR `#14`.
+- 2026-03-09: `M5` opened as PR `#15` for the reusable Python/Django quality workflow.
