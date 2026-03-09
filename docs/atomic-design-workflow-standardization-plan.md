@@ -117,8 +117,8 @@ Rule:
 | `M3` | Molecule | Branch guard | existing in `.github` | n/a |
 | `M4` | Molecule | Release backlog advisory | merged | `#11` |
 | `M5` | Molecule | Python/Django quality reusable workflow | merged | `#15` |
-| `M6` | Molecule | Python/Django container build reusable workflow | in review | `#17` |
-| `M7` | Molecule | `insight-ui-flow` adoption | planned | tbd |
+| `M6` | Molecule | Python/Django container build reusable workflow | merged | `#17` |
+| `M7` | Molecule | `insight-ui-flow` adoption | in review | `alpininsight/insight-ui-flow#3` |
 
 ## Update Log
 
@@ -127,6 +127,8 @@ Rule:
 - 2026-03-09: `release-please` classified as migration legacy, not org standard.
 - 2026-03-09: `M1` opened as PR `#14` to make GitVersion the explicit org release standard.
 - 2026-03-09: `M1` merged as PR `#14`.
+- 2026-03-09: `M5` opened as PR `#15` for the reusable Python/Django quality workflow.
 - 2026-03-09: `M5` merged as PR `#15`.
 - 2026-03-09: `M6` publication opened as PR `#17` to land the reusable Python/Django container-build workflow on `main`.
-- 2026-03-09: `M5` opened as PR `#15` for the reusable Python/Django quality workflow.
+- 2026-03-09: `M6` merged as PR `#17`.
+- 2026-03-09: `M7` opened as `alpininsight/insight-ui-flow#3`.
