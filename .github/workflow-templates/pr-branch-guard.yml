@@ -21,11 +21,11 @@ jobs:
           echo "base=$BASE_REF head=$HEAD_REF"
 
           if [[ "$BASE_REF" == "main" ]]; then
-            if [[ "$HEAD_REF" != "develop" ]]; then
-              echo "ERROR: PRs into main are only allowed from develop."
-              exit 1
+            if [[ "$HEAD_REF" == "develop" || "$HEAD_REF" =~ ^release/.+$ ]]; then
+              exit 0
             fi
-            exit 0
+            echo "ERROR: PRs into main are only allowed from develop or release/* branches."
+            exit 1
           fi
 
           if [[ "$BASE_REF" == "develop" ]]; then
