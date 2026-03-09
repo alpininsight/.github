@@ -62,11 +62,17 @@ jobs:
     name: Quality Gate
     runs-on: ubuntu-latest
     needs: test
+    if: ${{ always() }}
     steps:
       - name: Gate summary
         env:
           BASE_BRANCH: ${{ github.base_ref }}
+          TEST_RESULT: ${{ needs.test.result }}
         run: |
+          if [[ "$TEST_RESULT" != "success" ]]; then
+            echo "::error::One or more matrix test jobs failed or were cancelled."
+            exit 1
+          fi
           echo "## Quality Gate" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "| Attribute | Value |" >> "$GITHUB_STEP_SUMMARY"
