@@ -6,6 +6,9 @@ consistently across repos with and without branch protection rules, and each
 section explains why a workflow exists so developers can decide when it is
 required versus optional.
 
+Related planning document:
+- [Atomic Design Workflow Standardization Plan](./atomic-design-workflow-standardization-plan.md)
+
 ## Table of Contents
 
 - [Changelog Workflow](#changelog-workflow)
