@@ -2,11 +2,14 @@
 
 This document describes the standardized GitHub Actions workflows that all
 Alpine Insight repositories should adopt. These workflows are designed to work
-consistently across repos with and without branch protection rules.
+consistently across repos with and without branch protection rules, and each
+section explains why a workflow exists so developers can decide when it is
+required versus optional.
 
 ## Table of Contents
 
 - [Changelog Workflow](#changelog-workflow)
+- [Release Backlog Advisory](#release-backlog-advisory)
 - [Monorepo Version Manifests](#monorepo-version-manifests)
 - [GitVersion Configuration](#gitversion-configuration)
 - [Required Secrets](#required-secrets)
@@ -56,6 +59,76 @@ without required checks.
 | PR created but not merged | Auto-merge not enabled + required checks exist | Enable "Allow auto-merge" in repo Settings > General |
 | `Auto-merge unavailable, attempting direct merge` then fails | Required checks block direct merge | Enable auto-merge in repo settings |
 | Changelog not updating | `cliff.toml` missing or misconfigured | Ensure `cliff.toml` exists in repo root |
+
+---
+
+## Release Backlog Advisory
+
+**Reusable workflow:** `alpininsight/.github/.github/workflows/release-backlog-advisory-reusable.yml@main`
+
+Advises on `develop -> main` release backlog by comparing the actual file tree
+between `main` and `develop`, not raw commit counts.
+
+### Why It Exists
+
+Repositories that release into `main` via squash or batch merges often show
+hundreds of commits of apparent drift even when only a few files still differ.
+Commit-count heuristics create noisy, misleading PR comments in that model.
+
+This workflow answers the question developers actually care about:
+"What still differs between `develop` and `main` right now?"
+
+### How It Works
+
+1. Checks out the caller repository with full history
+2. Computes `git diff --name-only origin/main..origin/develop`
+3. Excludes docs/changelog/meta-only paths from the substantive count
+4. Upserts a single PR comment only when the remaining file drift crosses the thresholds
+5. Deletes the old advisory comment automatically after the backlog is cleared
+
+### Substantive vs non-substantive files
+
+Excluded from the substantive count:
+
+- `CHANGELOG.md`
+- Markdown-only docs (`*.md`, `*.mdx`, `docs/**`)
+- issue/PR templates and repo-meta files such as `.gitignore`,
+  `.gitattributes`, `.editorconfig`, `.github/labels.yml`
+
+Still treated as substantive:
+
+- `.github/workflows/**`
+- source code
+- scripts
+- tests
+- manifests and deployment/config files
+
+### Thresholds
+
+| Condition | Comment |
+|----------|---------|
+| `> 5` substantive files | `Consider a release PR` |
+| `> 15` total files and at least 1 substantive file | `Strongly recommend a release PR` |
+| only docs/changelog/meta drift | no advisory comment |
+
+### Usage
+
+Call the reusable workflow from a repo-local CI workflow that already runs on
+PRs into `develop`:
+
+```yaml
+release-backlog-advisory:
+  if: github.base_ref == 'develop'
+  uses: alpininsight/.github/.github/workflows/release-backlog-advisory-reusable.yml@main
+  with:
+    pr-number: ${{ github.event.pull_request.number }}
+```
+
+### Design Notes
+
+- Advisory only: it never fails the build
+- One comment marker: avoids PR comment spam on every push
+- Tree-diff first: matches real release scope better than commit ancestry counts
 
 ---
 
@@ -258,9 +331,11 @@ For the changelog workflow to work optimally with branch protection:
 When adding these workflows to a new repo:
 
 - [ ] Copy `changelog.yml` to `.github/workflows/`
+- [ ] Call `release-backlog-advisory-reusable.yml` from repo CI if the repo uses `develop -> main` releases
 - [ ] Copy `GitVersion.yml` to repo root
 - [ ] Ensure `cliff.toml` exists (git-cliff configuration)
 - [ ] Add `CHANGELOG_BOT_TOKEN` secret to the repo
 - [ ] Enable "Allow auto-merge" in repo settings (recommended)
 - [ ] Verify `prevent-increment-of-merged-branch-version: false` on `main` branch
 - [ ] For monorepos with `projects/*`: copy `monorepo-version-manifests.yml`
+- [ ] For Django repos or notebook-style Python UIs: add a repo-local container build job to CI so image packaging breaks fail before merge
