@@ -134,7 +134,8 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             ${{ inputs.build_args }}
-            ${{ secrets.github_read_token != '' && format('GIT_ACCESS_TOKEN={0}', secrets.github_read_token) || '' }}
+          secrets: |
+            ${{ secrets.github_read_token != '' && format('insight_token={0}', secrets.github_read_token) || '' }}
 
       - name: Build summary
         env:
