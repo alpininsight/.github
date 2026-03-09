@@ -1,0 +1,145 @@
+---
+name: Python/Django Quality (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      python_versions:
+        description: JSON array of Python versions for the test matrix.
+        required: false
+        type: string
+        default: '["3.12", "3.13", "3.14"]'
+      working_directory:
+        description: Directory that contains pyproject.toml and the test suite.
+        required: false
+        type: string
+        default: "."
+      uv_sync_args:
+        description: Arguments appended to `uv sync`.
+        required: false
+        type: string
+        default: "--frozen --dev"
+      run_pre_commit:
+        description: Run pre-commit before linting and tests.
+        required: false
+        type: boolean
+        default: true
+      pre_commit_command:
+        description: Command used for pre-commit validation.
+        required: false
+        type: string
+        default: uvx pre-commit run --all-files
+      lint_command:
+        description: Command used for linting.
+        required: false
+        type: string
+        default: uv run ruff check .
+      format_command:
+        description: Command used for formatting validation.
+        required: false
+        type: string
+        default: uv run ruff format --check .
+      django_check_command:
+        description: Optional Django system check command. Leave empty for non-Django repos.
+        required: false
+        type: string
+        default: ""
+      test_command:
+        description: Command used for the test suite.
+        required: false
+        type: string
+        default: uv run pytest
+    secrets:
+      github_read_token:
+        description: Optional read token for private GitHub dependencies.
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Quality (Python ${{ matrix.python_version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python_version: ${{ fromJson(inputs.python_versions) }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: ${{ inputs.working_directory }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python_version }}
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Configure private GitHub dependency access
+        if: ${{ secrets.github_read_token != '' }}
+        env:
+          GITHUB_READ_TOKEN: ${{ secrets.github_read_token }}
+        run: |
+          git config --global url."https://x-access-token:${GITHUB_READ_TOKEN}@github.com/".insteadOf "https://github.com/"
+
+      - name: Sync dependencies
+        run: uv sync ${{ inputs.uv_sync_args }}
+
+      - name: Run pre-commit
+        if: ${{ inputs.run_pre_commit }}
+        run: ${{ inputs.pre_commit_command }}
+
+      - name: Lint
+        run: ${{ inputs.lint_command }}
+
+      - name: Format check
+        run: ${{ inputs.format_command }}
+
+      - name: Django system checks
+        if: ${{ inputs.django_check_command != '' }}
+        run: ${{ inputs.django_check_command }}
+
+      - name: Tests
+        run: ${{ inputs.test_command }}
+
+  quality_gate:
+    name: Quality Gate
+    runs-on: ubuntu-latest
+    needs: quality
+    if: ${{ always() }}
+    steps:
+      - name: Gate summary
+        env:
+          QUALITY_RESULT: ${{ needs.quality.result }}
+          PYTHON_VERSIONS: ${{ inputs.python_versions }}
+          WORKING_DIRECTORY: ${{ inputs.working_directory }}
+          DJANGO_CHECK_COMMAND: ${{ inputs.django_check_command }}
+        run: |
+          if [[ "$QUALITY_RESULT" != "success" ]]; then
+            echo "::error::One or more Python/Django quality matrix jobs failed or were cancelled."
+            exit 1
+          fi
+
+          echo "## Python/Django Quality Gate" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Attribute | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|-----------|-------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Python versions | $PYTHON_VERSIONS |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Working directory | $WORKING_DIRECTORY |" >> "$GITHUB_STEP_SUMMARY"
+          if [[ -n "$DJANGO_CHECK_COMMAND" ]]; then
+            echo "| Django checks | enabled |" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "| Django checks | disabled |" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "| Result | passed |" >> "$GITHUB_STEP_SUMMARY"

@@ -15,6 +15,7 @@ Related planning document:
 - [Changelog Workflow](#changelog-workflow)
 - [Release Strategy Standard](#release-strategy-standard)
 - [Release Backlog Advisory](#release-backlog-advisory)
+- [Python Django Quality Reusable Workflow](#python-django-quality-reusable-workflow)
 - [Feature CI](#feature-ci)
 - [PR Title Lint](#pr-title-lint)
 - [Scheduled Pre-commit Update](#scheduled-pre-commit-update)
@@ -156,12 +157,104 @@ release-backlog-advisory:
 
 ---
 
+## Python Django Quality Reusable Workflow
+
+**Reusable workflow:** `alpininsight/.github/.github/workflows/python-django-quality-reusable.yml@main`
+
+This is the organization standard quality workflow for repositories that ship:
+
+- a Django application
+- a Python-based notebook UI
+- another Python UI repo with `pyproject.toml`, `uv`, `ruff`, and `pytest`
+
+### Why It Exists
+
+The earlier `feature-ci` template standardized the basic checks, but each repo
+still had to carry a local copy and then drift over time. This reusable
+workflow centralizes the actual quality contract so repos can keep only a thin
+caller workflow.
+
+It also makes the reason for each step explicit for developers:
+
+- `uv sync`: reproduce the locked dependency graph
+- `pre-commit`: enforce repository-wide file hygiene
+- `ruff check` and `ruff format --check`: keep lint and formatting consistent
+- optional `manage.py check`: validate Django configuration before runtime
+- `pytest`: verify application behavior
+- quality gate: provide one stable required check for branch protection
+
+For Django repos and notebook-style UI repos, pair this workflow with the
+container-build molecule so code quality and runtime packaging are both covered.
+
+### How It Works
+
+1. The caller passes a Python version matrix and optional repo-specific commands
+2. Each matrix job checks out the repo, installs Python and `uv`, then runs the quality steps
+3. An optional secret can unlock private GitHub dependencies during `uv sync`
+4. The final gate runs with `always()` and fails if any matrix leg failed or was cancelled
+
+### Inputs
+
+| Input | Purpose | Default |
+|-------|---------|---------|
+| `python_versions` | JSON array for the test matrix | `["3.12", "3.13", "3.14"]` |
+| `working_directory` | Project directory for commands | `.` |
+| `uv_sync_args` | Arguments appended to `uv sync` | `--frozen --dev` |
+| `run_pre_commit` | Enable or disable pre-commit | `true` |
+| `pre_commit_command` | Override the pre-commit command | `uvx pre-commit run --all-files` |
+| `lint_command` | Override the lint command | `uv run ruff check .` |
+| `format_command` | Override the format check command | `uv run ruff format --check .` |
+| `django_check_command` | Optional Django system check command | empty |
+| `test_command` | Override the test command | `uv run pytest` |
+
+### Secrets
+
+| Secret | Purpose |
+|--------|---------|
+| `github_read_token` | Optional read token for private GitHub dependencies during `uv sync` |
+
+### Usage
+
+```yaml
+name: Feature CI
+
+on:
+  pull_request:
+    branches: [develop, main]
+    types: [opened, reopened, synchronize, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  python-quality:
+    uses: alpininsight/.github/.github/workflows/python-django-quality-reusable.yml@main
+    with:
+      python_versions: '["3.12", "3.13"]'
+      uv_sync_args: --all-groups
+      django_check_command: uv run python manage.py check --deploy --fail-level ERROR
+    secrets:
+      github_read_token: ${{ secrets.INSIGHT_TOKEN_RO }}
+```
+
+### Design Notes
+
+- Prefer this reusable workflow for new Python/Django repos instead of copying `feature-ci.yml`
+- Keep the repo-local caller file small so required check names remain stable
+- If the repo has no Django layer, leave `django_check_command` empty
+- If the repo ships a containerized Django app or notebook UI, add the container-build workflow as a companion check
+
+---
+
 ## Feature CI
 
 **Template file:** `.github/workflow-templates/feature-ci.yml`
 
 Runs linting, formatting, and tests on every pull request targeting `main` or
 `develop`.
+
+This template remains useful as a starter or transitional local workflow, but
+the org standard for new Python/Django repos is the reusable workflow above.
 
 ### How It Works
 
