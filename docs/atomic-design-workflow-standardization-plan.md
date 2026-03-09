@@ -117,7 +117,7 @@ Rule:
 | `M3` | Molecule | Branch guard | existing in `.github` | n/a |
 | `M4` | Molecule | Release backlog advisory | merged | `#11` |
 | `M5` | Molecule | Python/Django quality reusable workflow | in review | `#15` |
-| `M6` | Molecule | Python/Django container build reusable workflow | planned | tbd |
+| `M6` | Molecule | Python/Django container build reusable workflow | in review | `#16` |
 | `M7` | Molecule | `insight-ui-flow` adoption | planned | tbd |
 
 ## Update Log
@@ -128,3 +128,4 @@ Rule:
 - 2026-03-09: `M1` opened as PR `#14` to make GitVersion the explicit org release standard.
 - 2026-03-09: `M1` merged as PR `#14`.
 - 2026-03-09: `M5` opened as PR `#15` for the reusable Python/Django quality workflow.
+- 2026-03-09: `M6` opened as PR `#16` for the reusable Python/Django container-build workflow.
