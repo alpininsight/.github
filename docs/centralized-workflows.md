@@ -301,8 +301,8 @@ this workflow should be present alongside the Python/Django quality workflow.
 | Secret | Purpose |
 |--------|---------|
 | `github_read_token` | Optional read token for private GitHub dependencies during docker build |
-| `registry_username` | Optional registry username for push workflows |
-| `registry_password` | Optional registry password for push workflows |
+| `registry_username` | Required for push workflows to registries other than `ghcr.io` |
+| `registry_password` | Required for push workflows to registries other than `ghcr.io` |
 
 ### Usage
 
@@ -340,7 +340,7 @@ jobs:
 - Default `push: false` keeps PR validation safe
 - Use the same workflow for publish flows by enabling `push` in the caller
 - For private GitHub dependencies, pass `github_read_token` and wire the Dockerfile to `ARG GIT_ACCESS_TOKEN`
-- For non-GitHub registries, pass explicit `registry_username` and `registry_password`
+- Only `ghcr.io` may use default GitHub credentials; all other registries require explicit `registry_username` and `registry_password`
 - Prefer explicit `paths` filters in the caller so container builds only run when the packaged runtime can actually change
 
 ---
