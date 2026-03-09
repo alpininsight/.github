@@ -16,6 +16,7 @@ Related planning document:
 - [Release Strategy Standard](#release-strategy-standard)
 - [Release Backlog Advisory](#release-backlog-advisory)
 - [Python Django Quality Reusable Workflow](#python-django-quality-reusable-workflow)
+- [Python Django Container Build Reusable Workflow](#python-django-container-build-reusable-workflow)
 - [Feature CI](#feature-ci)
 - [PR Title Lint](#pr-title-lint)
 - [Scheduled Pre-commit Update](#scheduled-pre-commit-update)
@@ -243,6 +244,104 @@ jobs:
 - Keep the repo-local caller file small so required check names remain stable
 - If the repo has no Django layer, leave `django_check_command` empty
 - If the repo ships a containerized Django app or notebook UI, add the container-build workflow as a companion check
+
+---
+
+## Python Django Container Build Reusable Workflow
+
+**Reusable workflow:** `alpininsight/.github/.github/workflows/python-django-container-build-reusable.yml@main`
+
+This is the organization standard container-build workflow for repositories that
+ship:
+
+- a Django application image
+- a Python-based notebook UI with a Docker runtime
+- another Python UI service that deploys via OCI image
+
+### Why It Exists
+
+For these repos, code quality alone is not enough. A PR can pass linting and
+tests while still failing to build or package into the runtime artifact that
+gets deployed.
+
+This workflow makes the packaging contract explicit for developers:
+
+- Docker context and Dockerfile must stay valid
+- multi-stage builds must keep working
+- optional private dependency access must remain wired correctly
+- image metadata and tags are generated consistently
+- PR validation can build without pushing, while release flows can push the same definition
+
+If a repo is a Django project or a notebook-style UI with a container runtime,
+this workflow should be present alongside the Python/Django quality workflow.
+
+### How It Works
+
+1. The caller passes the image name, context, Dockerfile, and optional build settings
+2. The workflow sets up QEMU and Buildx for reproducible Docker builds
+3. It can log in to a registry when the caller enables `push`
+4. Docker metadata is generated consistently for SHA and branch tags
+5. The image is built, and optionally pushed, from the same reusable definition
+
+### Inputs
+
+| Input | Purpose | Default |
+|-------|---------|---------|
+| `image_name` | Full image name | required |
+| `context` | Docker build context | `.` |
+| `dockerfile` | Dockerfile path | `Dockerfile` |
+| `target` | Optional build target | empty |
+| `platforms` | Comma-separated Docker platforms | `linux/amd64` |
+| `push` | Push after successful build | `false` |
+| `build_args` | Multiline Docker build arguments | empty |
+| `additional_tags` | Extra metadata-action tag rules | empty |
+
+### Secrets
+
+| Secret | Purpose |
+|--------|---------|
+| `github_read_token` | Optional read token for private GitHub dependencies during docker build |
+| `registry_username` | Required for push workflows to registries other than `ghcr.io` |
+| `registry_password` | Required for push workflows to registries other than `ghcr.io` |
+
+### Usage
+
+```yaml
+name: Container Build
+
+on:
+  pull_request:
+    branches: [develop, main]
+  push:
+    branches: [develop, main]
+    paths:
+      - Dockerfile
+      - pyproject.toml
+      - uv.lock
+      - src/**
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  container-build:
+    uses: alpininsight/.github/.github/workflows/python-django-container-build-reusable.yml@main
+    with:
+      image_name: ghcr.io/alpininsight/insight-ui-flow
+      platforms: linux/amd64,linux/arm64
+      push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    secrets:
+      github_read_token: ${{ secrets.INSIGHT_TOKEN_RO }}
+```
+
+### Design Notes
+
+- Default `push: false` keeps PR validation safe
+- Use the same workflow for publish flows by enabling `push` in the caller
+- For private GitHub dependencies, pass `github_read_token` and wire the Dockerfile to `ARG GIT_ACCESS_TOKEN`
+- Only `ghcr.io` may use default GitHub credentials; all other registries require explicit `registry_username` and `registry_password`
+- Prefer explicit `paths` filters in the caller so container builds only run when the packaged runtime can actually change
 
 ---
 
