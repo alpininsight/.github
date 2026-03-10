@@ -32,7 +32,6 @@ documentation, troubleshooting, and adoption checklist.
 | `gitversion.yml` | Calculate SemVer metadata from conventional commits | `GitVersion.yml` in repo root |
 | `monorepo-version-manifests.yml` | Generate per-component version manifest artifacts for `projects/*` monorepos | `GitVersion.yml`, `projects/<component>/` layout |
 | `pr-branch-guard.yml` | Enforce branch naming conventions on PRs | -- |
-| `release-pr-auto-merge.yml` | Auto-merge release PRs after checks pass | -- |
 
 ### Adoption checklist (per repo)
 
