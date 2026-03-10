@@ -12,6 +12,7 @@ Related planning document:
 
 ## Table of Contents
 
+- [Reusable Workflow Consumer Contract](#reusable-workflow-consumer-contract)
 - [Changelog Workflow](#changelog-workflow)
 - [Release Strategy Standard](#release-strategy-standard)
 - [Release Backlog Advisory](#release-backlog-advisory)
@@ -24,6 +25,39 @@ Related planning document:
 - [GitVersion Configuration](#gitversion-configuration)
 - [Required Secrets](#required-secrets)
 - [Repository Settings](#repository-settings)
+
+---
+
+## Reusable Workflow Consumer Contract
+
+When a repository consumes a reusable workflow from `alpininsight/.github`, two
+rules apply:
+
+1. Pin the reusable workflow to a commit SHA, not `@main`.
+2. Grant required permissions in the caller job or workflow; a called workflow
+   cannot elevate the token beyond what the caller grants.
+
+This matters in practice for two recurring failure modes:
+
+- `zizmor` flags `uses: ...@main` as `unpinned-uses`
+- comment-writing reusable workflows fail silently if the caller keeps only
+  `contents: read`
+
+Example:
+
+```yaml
+permissions:
+  contents: read
+
+jobs:
+  release-backlog-advisory:
+    permissions:
+      contents: read
+      pull-requests: write
+    uses: alpininsight/.github/.github/workflows/release-backlog-advisory-reusable.yml@<org-workflow-sha>
+    with:
+      pr-number: ${{ github.event.pull_request.number }}
+```
 
 ---
 
@@ -90,7 +124,7 @@ without required checks.
 
 ## Release Backlog Advisory
 
-**Reusable workflow:** `alpininsight/.github/.github/workflows/release-backlog-advisory-reusable.yml@main`
+**Reusable workflow:** `alpininsight/.github/.github/workflows/release-backlog-advisory-reusable.yml@<org-workflow-sha>`
 
 Advises on `develop -> main` release backlog by comparing the actual file tree
 between `main` and `develop`, not raw commit counts.
@@ -144,8 +178,11 @@ PRs into `develop`:
 
 ```yaml
 release-backlog-advisory:
+  permissions:
+    contents: read
+    pull-requests: write
   if: github.base_ref == 'develop'
-  uses: alpininsight/.github/.github/workflows/release-backlog-advisory-reusable.yml@main
+  uses: alpininsight/.github/.github/workflows/release-backlog-advisory-reusable.yml@<org-workflow-sha>
   with:
     pr-number: ${{ github.event.pull_request.number }}
 ```
@@ -155,12 +192,14 @@ release-backlog-advisory:
 - Advisory only: it never fails the build
 - One comment marker: avoids PR comment spam on every push
 - Tree-diff first: matches real release scope better than commit ancestry counts
+- Caller must grant `pull-requests: write`, otherwise the reusable workflow
+  cannot post or update the advisory comment
 
 ---
 
 ## Python Django Quality Reusable Workflow
 
-**Reusable workflow:** `alpininsight/.github/.github/workflows/python-django-quality-reusable.yml@main`
+**Reusable workflow:** `alpininsight/.github/.github/workflows/python-django-quality-reusable.yml@<org-workflow-sha>`
 
 This is the organization standard quality workflow for repositories that ship:
 
@@ -229,7 +268,7 @@ permissions:
 
 jobs:
   python-quality:
-    uses: alpininsight/.github/.github/workflows/python-django-quality-reusable.yml@main
+    uses: alpininsight/.github/.github/workflows/python-django-quality-reusable.yml@<org-workflow-sha>
     with:
       python_versions: '["3.12", "3.13"]'
       uv_sync_args: --all-groups
@@ -249,7 +288,7 @@ jobs:
 
 ## Python Django Container Build Reusable Workflow
 
-**Reusable workflow:** `alpininsight/.github/.github/workflows/python-django-container-build-reusable.yml@main`
+**Reusable workflow:** `alpininsight/.github/.github/workflows/python-django-container-build-reusable.yml@<org-workflow-sha>`
 
 This is the organization standard container-build workflow for repositories that
 ship:
@@ -326,7 +365,7 @@ permissions:
 
 jobs:
   container-build:
-    uses: alpininsight/.github/.github/workflows/python-django-container-build-reusable.yml@main
+    uses: alpininsight/.github/.github/workflows/python-django-container-build-reusable.yml@<org-workflow-sha>
     with:
       image_name: ghcr.io/alpininsight/insight-ui-flow
       platforms: linux/amd64,linux/arm64
@@ -448,7 +487,7 @@ The workflow is identical across all repos. No customization needed.
 ## Monorepo Version Manifests
 
 **Template file:** `.github/workflows/monorepo-version-manifests.yml`  
-**Reusable backend:** `alpininsight/.github/.github/workflows/monorepo-version-manifests-reusable.yml@main`
+**Reusable backend:** `alpininsight/.github/.github/workflows/monorepo-version-manifests-reusable.yml@<org-workflow-sha>`
 
 Generates per-component version artifacts for monorepos that keep projects
 under `projects/*`.
