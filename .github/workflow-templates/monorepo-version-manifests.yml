@@ -1,0 +1,46 @@
+name: Monorepo Version Manifests
+
+on:
+  push:
+    branches: [develop, main]
+    paths:
+      - "projects/**"
+      - "GitVersion.yml"
+      - ".github/workflows/monorepo-version-manifests.yml"
+  pull_request:
+    branches: [develop, main]
+    paths:
+      - "projects/**"
+      - "GitVersion.yml"
+      - ".github/workflows/monorepo-version-manifests.yml"
+  workflow_dispatch:
+    inputs:
+      components:
+        description: "Comma-separated components (defaults to changed components)"
+        required: false
+        default: ""
+      force_all:
+        description: "Generate manifests for all components under projects/"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: monorepo-version-manifests-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  generate-manifests:
+    name: Generate Monorepo Version Manifests
+    uses: alpininsight/.github/.github/workflows/monorepo-version-manifests-reusable.yml@main
+    with:
+      components: ${{ github.event.inputs.components || '' }}
+      force_all: ${{ github.event.inputs.force_all == 'true' }}
+      component_root: projects
+      base_sha: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
+      head_sha: ${{ github.event.pull_request.head.sha || github.sha }}
+      artifact_name_prefix: version-manifest
+    secrets: inherit

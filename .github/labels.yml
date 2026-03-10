@@ -36,6 +36,11 @@
   color: "b60205"
   description: Breaking changes requiring migration
 
+# Infrastructure
+- name: infrastructure
+  color: "006b75"
+  description: Infrastructure provisioning and configuration
+
 # Maintenance
 - name: chore
   color: "c5def5"

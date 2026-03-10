@@ -1,0 +1,12 @@
+{
+  "name": "Scheduled pre-commit update",
+  "description": "Weekly pre-commit hook version updates via automated PR.",
+  "iconName": "octicon-sync",
+  "categories": [
+    "Automation",
+    "Continuous integration"
+  ],
+  "filePatterns": [
+    "^\\.pre-commit-config\\.yaml$"
+  ]
+}

@@ -1,0 +1,298 @@
+name: Reusable Monorepo Version Manifests
+
+on:
+  workflow_call:
+    inputs:
+      components:
+        description: "Comma-separated components (directory names under component_root)"
+        required: false
+        type: string
+        default: ""
+      force_all:
+        description: "Generate manifests for all discovered components"
+        required: false
+        type: boolean
+        default: false
+      component_root:
+        description: "Root directory that contains monorepo components"
+        required: false
+        type: string
+        default: "projects"
+      base_sha:
+        description: "Diff base SHA; if empty, the workflow picks a fallback"
+        required: false
+        type: string
+        default: ""
+      head_sha:
+        description: "Diff head SHA; defaults to github.sha"
+        required: false
+        type: string
+        default: ""
+      artifact_name_prefix:
+        description: "Prefix for uploaded artifact names"
+        required: false
+        type: string
+        default: "version-manifest"
+    outputs:
+      component_count:
+        description: "Number of targeted components"
+        value: ${{ jobs.detect-components.outputs.count }}
+      component_matrix:
+        description: "Component matrix used for manifest generation"
+        value: ${{ jobs.detect-components.outputs.matrix }}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: monorepo-version-manifests-${{ github.event.pull_request.number || github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  detect-components:
+    name: Detect Components
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.detect.outputs.matrix }}
+      count: ${{ steps.detect.outputs.count }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed components
+        id: detect
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ROOT="${{ inputs.component_root }}"
+          REQUESTED_COMPONENTS="${{ inputs.components }}"
+          FORCE_ALL="${{ inputs.force_all }}"
+          BASE_SHA_INPUT="${{ inputs.base_sha }}"
+          HEAD_SHA_INPUT="${{ inputs.head_sha }}"
+
+          if [[ ! -d "$ROOT" ]]; then
+            echo "::warning::Component root '$ROOT' does not exist."
+            echo "matrix=[]" >> "$GITHUB_OUTPUT"
+            echo "count=0" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          mapfile -t known_components < <(
+            find "$ROOT" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort
+          )
+
+          if [[ "${#known_components[@]}" -eq 0 ]]; then
+            echo "::warning::No components discovered under '$ROOT'."
+            echo "matrix=[]" >> "$GITHUB_OUTPUT"
+            echo "count=0" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          declare -A selected=()
+          declare -A known_lookup=()
+          for component in "${known_components[@]}"; do
+            known_lookup["${component,,}"]="$component"
+          done
+
+          add_component() {
+            local candidate="$1"
+            if [[ -n "${known_lookup[${candidate,,}]:-}" ]]; then
+              selected["${known_lookup[${candidate,,}]}"]=1
+            fi
+          }
+
+          if [[ "$FORCE_ALL" == "true" ]]; then
+            for component in "${known_components[@]}"; do
+              add_component "$component"
+            done
+          fi
+
+          if [[ -n "${REQUESTED_COMPONENTS// }" ]]; then
+            IFS=',' read -ra requested <<< "$REQUESTED_COMPONENTS"
+            for item in "${requested[@]}"; do
+              normalized="$(echo "$item" | xargs)"
+              if [[ -z "$normalized" ]]; then
+                continue
+              fi
+              if [[ -n "${known_lookup[${normalized,,}]:-}" ]]; then
+                add_component "$normalized"
+              else
+                echo "::warning::Ignoring unknown component '$normalized'"
+              fi
+            done
+          fi
+
+          if [[ "${#selected[@]}" -eq 0 ]]; then
+            head_sha="$HEAD_SHA_INPUT"
+            if [[ -z "$head_sha" ]]; then
+              head_sha="${{ github.sha }}"
+            fi
+
+            base_sha="$BASE_SHA_INPUT"
+            if [[ -z "$base_sha" || "$base_sha" =~ ^0+$ ]]; then
+              base_sha="$(git rev-list --max-count=1 "${head_sha}^" 2>/dev/null || true)"
+            fi
+
+            if [[ -n "$base_sha" ]]; then
+              if git rev-parse --verify --quiet "${base_sha}^{commit}" >/dev/null \
+                && git rev-parse --verify --quiet "${head_sha}^{commit}" >/dev/null; then
+                changed_paths_file="$(mktemp)"
+                if git diff --name-only "$base_sha" "$head_sha" > "$changed_paths_file" 2>/dev/null; then
+                  mapfile -t changed_paths < "$changed_paths_file"
+                else
+                  echo "::warning::git diff failed for base '$base_sha' and head '$head_sha'; selecting all components."
+                  changed_paths=()
+                  for component in "${known_components[@]}"; do
+                    add_component "$component"
+                  done
+                fi
+                rm -f "$changed_paths_file"
+              else
+                echo "::warning::Base/head SHA not available locally (base='$base_sha', head='$head_sha'); selecting all components."
+                changed_paths=()
+                for component in "${known_components[@]}"; do
+                  add_component "$component"
+                done
+              fi
+            else
+              mapfile -t changed_paths < <(git ls-files)
+            fi
+
+            for path in "${changed_paths[@]}"; do
+              if [[ "$path" == "$ROOT/"* ]]; then
+                component="${path#"$ROOT/"}"
+                component="${component%%/*}"
+                add_component "$component"
+                continue
+              fi
+
+              case "$path" in
+                GitVersion.yml|.github/workflows/*|.github/workflow-templates/*)
+                  for component in "${known_components[@]}"; do
+                    add_component "$component"
+                  done
+                  ;;
+              esac
+            done
+          fi
+
+          if [[ "${#selected[@]}" -eq 0 ]]; then
+            echo "matrix=[]" >> "$GITHUB_OUTPUT"
+            echo "count=0" >> "$GITHUB_OUTPUT"
+            echo "No component changes detected."
+            exit 0
+          fi
+
+          mapfile -t sorted_components < <(
+            printf "%s\n" "${!selected[@]}" | sort
+          )
+
+          matrix_json="$(
+            printf "%s\n" "${sorted_components[@]}" \
+              | jq -R --arg root "$ROOT" '{component: ., project_path: ($root + "/" + .)}' \
+              | jq -s -c .
+          )"
+
+          echo "matrix=$matrix_json" >> "$GITHUB_OUTPUT"
+          echo "count=${#sorted_components[@]}" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "### Monorepo version manifest targets"
+            for component in "${sorted_components[@]}"; do
+              echo "- \`$component\`"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  generate-version-manifests:
+    name: Generate Version Manifest (${{ matrix.component }})
+    needs: detect-components
+    if: needs.detect-components.outputs.count != '0'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.detect-components.outputs.matrix) }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up GitVersion
+        uses: gittools/actions/gitversion/setup@v3.1.2
+        with:
+          versionSpec: 5.x
+          preferLatestVersion: true
+
+      - name: Calculate version
+        id: gitversion
+        uses: gittools/actions/gitversion/execute@v3.1.2
+        with:
+          useConfigFile: true
+          configFilePath: GitVersion.yml
+          overrideConfig: |
+            update-build-number=false
+
+      - name: Generate manifest file
+        id: manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          COMPONENT="${{ matrix.component }}"
+          PROJECT_PATH="${{ matrix.project_path }}"
+          VERSION="v${{ steps.gitversion.outputs.MajorMinorPatch }}"
+          SEMVER="${{ steps.gitversion.outputs.SemVer }}"
+          FULL_SEMVER="${{ steps.gitversion.outputs.FullSemVer }}"
+          ARTIFACT_DIR="artifacts/version-manifests"
+
+          mkdir -p "$ARTIFACT_DIR"
+          MANIFEST_PATH="$ARTIFACT_DIR/${COMPONENT}.json"
+
+          cat > "$MANIFEST_PATH" <<EOF
+          {
+            "component": "${COMPONENT}",
+            "project_path": "${PROJECT_PATH}",
+            "release_version": "${VERSION}",
+            "semver": "${SEMVER}",
+            "full_semver": "${FULL_SEMVER}",
+            "sha": "${{ github.sha }}",
+            "ref_name": "${{ github.ref_name }}",
+            "run_id": "${{ github.run_id }}"
+          }
+          EOF
+
+          UPPER_COMPONENT="$(echo "$COMPONENT" | tr '[:lower:]-' '[:upper:]_')"
+          ENV_PATH="$ARTIFACT_DIR/${COMPONENT}.release.env"
+          echo "${UPPER_COMPONENT}_RELEASE_VERSION=${VERSION}" > "$ENV_PATH"
+
+          echo "manifest_path=$MANIFEST_PATH" >> "$GITHUB_OUTPUT"
+          echo "release_version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "env_path=$ENV_PATH" >> "$GITHUB_OUTPUT"
+
+      - name: Upload manifest artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name_prefix }}-${{ matrix.component }}
+          path: artifacts/version-manifests/*
+
+      - name: Summary
+        run: |
+          echo "### Version manifest: ${{ matrix.component }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Release version: \`${{ steps.manifest.outputs.release_version }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Manifest: \`${{ steps.manifest.outputs.manifest_path }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Env file: \`${{ steps.manifest.outputs.env_path }}\`" >> "$GITHUB_STEP_SUMMARY"
+
+  no-changes:
+    name: No Component Changes
+    needs: detect-components
+    if: needs.detect-components.outputs.count == '0'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Summary
+        run: |
+          echo "### Monorepo version manifests" >> "$GITHUB_STEP_SUMMARY"
+          echo "- No component changes detected; manifest generation skipped." >> "$GITHUB_STEP_SUMMARY"

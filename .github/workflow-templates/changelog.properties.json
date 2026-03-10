@@ -1,0 +1,12 @@
+{
+  "name": "Changelog",
+  "description": "Auto-generate CHANGELOG.md on develop using git-cliff with PR-based auto-merge.",
+  "iconName": "octicon-log",
+  "categories": [
+    "Continuous integration",
+    "Automation"
+  ],
+  "filePatterns": [
+    "^cliff\\.toml$"
+  ]
+}

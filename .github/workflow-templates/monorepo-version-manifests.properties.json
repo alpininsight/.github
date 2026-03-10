@@ -1,0 +1,13 @@
+{
+  "name": "Monorepo Version Manifests",
+  "description": "Generate per-component GitVersion manifest artifacts for repositories using projects/* layout.",
+  "iconName": "octicon-tag",
+  "categories": [
+    "Continuous integration",
+    "Deployment"
+  ],
+  "filePatterns": [
+    "^GitVersion\\.yml$",
+    "^projects/.+"
+  ]
+}
