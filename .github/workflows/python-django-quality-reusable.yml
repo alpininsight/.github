@@ -87,11 +87,14 @@ jobs:
           enable-cache: true
 
       - name: Configure private GitHub dependency access
-        if: ${{ secrets.github_read_token != '' }}
         env:
           GITHUB_READ_TOKEN: ${{ secrets.github_read_token }}
         run: |
-          git config --global url."https://x-access-token:${GITHUB_READ_TOKEN}@github.com/".insteadOf "https://github.com/"
+          if [[ -n "${GITHUB_READ_TOKEN:-}" ]]; then
+            git config --global --add url."https://x-access-token:${GITHUB_READ_TOKEN}@github.com/".insteadOf "https://github.com/"
+            git config --global --add url."https://x-access-token:${GITHUB_READ_TOKEN}@github.com/".insteadOf "ssh://git@github.com/"
+            git config --global --add url."https://x-access-token:${GITHUB_READ_TOKEN}@github.com/".insteadOf "git@github.com:"
+          fi
 
       - name: Sync dependencies
         run: uv sync ${{ inputs.uv_sync_args }}
