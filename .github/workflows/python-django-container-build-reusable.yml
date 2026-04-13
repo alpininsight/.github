@@ -110,7 +110,7 @@ jobs:
         with:
           registry: ${{ steps.registry.outputs.host }}
           username: ${{ steps.registry.outputs.credential_mode == 'github' && github.actor || secrets.registry_username }}
-          password: ${{ steps.registry.outputs.credential_mode == 'github' && secrets.GITHUB_TOKEN || secrets.registry_password }}
+          password: ${{ steps.registry.outputs.credential_mode == 'github' && github.token || secrets.registry_password }}
 
       - name: Generate image metadata
         id: meta
