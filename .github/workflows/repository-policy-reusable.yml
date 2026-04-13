@@ -1,0 +1,110 @@
+---
+name: Repository Policy (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      main_branch:
+        description: Release branch that may only receive PRs from develop.
+        required: false
+        type: string
+        default: main
+      develop_branch:
+        description: Integration branch for normal development.
+        required: false
+        type: string
+        default: develop
+      require_conventional_title:
+        description: Require PR titles to follow Conventional Commits.
+        required: false
+        type: boolean
+        default: true
+      require_conventional_commits:
+        description: Require all PR commit headlines to follow Conventional Commits.
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  repository_policy:
+    name: Repository Policy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate repository policy
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          BASE_REPOSITORY: ${{ github.event.pull_request.base.repo.full_name }}
+          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          MAIN_BRANCH: ${{ inputs.main_branch }}
+          DEVELOP_BRANCH: ${{ inputs.develop_branch }}
+          REQUIRE_CONVENTIONAL_TITLE: ${{ inputs.require_conventional_title }}
+          REQUIRE_CONVENTIONAL_COMMITS: ${{ inputs.require_conventional_commits }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          conventional_regex='^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\([A-Za-z0-9_.-]+\))?!?: .+'
+          failures=()
+
+          if [[ -z "${PR_NUMBER:-}" ]]; then
+            failures+=("Repository Policy must run on pull_request events.")
+          fi
+
+          if [[ "$BASE_REF" == "$MAIN_BRANCH" ]]; then
+            if [[ "$HEAD_REF" != "$DEVELOP_BRANCH" || "$HEAD_REPOSITORY" != "$BASE_REPOSITORY" ]]; then
+              failures+=("PRs into '$MAIN_BRANCH' must come from '$DEVELOP_BRANCH' in the same repository. Current source is '${HEAD_REPOSITORY}:${HEAD_REF}'.")
+            fi
+          fi
+
+          if [[ "$BASE_REF" == "$DEVELOP_BRANCH" && "$HEAD_REF" == "$MAIN_BRANCH" && "$HEAD_REPOSITORY" == "$BASE_REPOSITORY" ]]; then
+            failures+=("PRs from '$MAIN_BRANCH' back into '$DEVELOP_BRANCH' are not allowed.")
+          fi
+
+          if [[ "$REQUIRE_CONVENTIONAL_TITLE" == "true" && ! "$PR_TITLE" =~ $conventional_regex ]]; then
+            failures+=("PR title must follow Conventional Commits, for example 'feat: add API cache'. Current title: '$PR_TITLE'.")
+          fi
+
+          if [[ "$REQUIRE_CONVENTIONAL_COMMITS" == "true" ]]; then
+            commit_headlines_file="$(mktemp)"
+            if ! gh api --paginate "repos/${REPOSITORY}/pulls/${PR_NUMBER}/commits" \
+              --jq '.[].commit.message | split("\n")[0]' > "$commit_headlines_file"; then
+              failures+=("Unable to fetch PR commit headlines from GitHub; failing closed.")
+            else
+              mapfile -t headlines < "$commit_headlines_file"
+              if (( ${#headlines[@]} == 0 )); then
+                failures+=("GitHub returned no PR commit headlines; failing closed.")
+              fi
+
+              for headline in "${headlines[@]}"; do
+                if [[ ! "$headline" =~ $conventional_regex ]]; then
+                  failures+=("Commit headline must follow Conventional Commits: '$headline'.")
+                fi
+              done
+            fi
+            rm -f "$commit_headlines_file"
+          fi
+
+          if (( ${#failures[@]} > 0 )); then
+            printf 'Repository policy failed:\n' >&2
+            printf -- '- %s\n' "${failures[@]}" >&2
+            exit 1
+          fi
+
+          {
+            echo "## Repository Policy"
+            echo "- Base branch: \`$BASE_REF\`"
+            echo "- Head branch: \`$HEAD_REF\`"
+            echo "- Base repository: \`$BASE_REPOSITORY\`"
+            echo "- Head repository: \`$HEAD_REPOSITORY\`"
+            echo "- Conventional PR title: \`$REQUIRE_CONVENTIONAL_TITLE\`"
+            echo "- Conventional commit headlines: \`$REQUIRE_CONVENTIONAL_COMMITS\`"
+          } >> "$GITHUB_STEP_SUMMARY"
