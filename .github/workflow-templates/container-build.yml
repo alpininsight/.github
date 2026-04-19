@@ -133,8 +133,10 @@ jobs:
           # slug collisions. Default strategy is the last path segment of the
           # Dockerfile parent (services/<svc>/Dockerfile -> svc). Repos with
           # a deeper layout (e.g. connectors/<type>/<slug>/...) can use
-          # 'third-segment' via workflow_dispatch input.
-          matrix_json="$(TMP_LIST="$tmp_list" SLUG_STRATEGY="$SLUG_STRATEGY" python3 -c 'import json, os, sys; from collections import Counter; from pathlib import Path; strategy=os.environ["SLUG_STRATEGY"]; paths=[line.strip() for line in Path(os.environ["TMP_LIST"]).read_text(encoding="utf-8").splitlines() if line.strip()]; slug=lambda p: Path(p).parts[2] if strategy == "third-segment" and len(Path(p).parts) >= 4 else Path(p).parent.name; slugs=[slug(p) for p in paths]; collisions=sorted({s for s, c in Counter(slugs).items() if c > 1}); sys.exit("slug collision across paths: " + ", ".join(collisions)) if collisions else None; items=[{"dockerfile": p, "context": str(Path(p).parent), "name": slug(p)} for p in paths]; print(json.dumps(items))')"
+          # 'third-segment' via workflow_dispatch input. Root-level
+          # Dockerfiles (parent == '.') fall back to 'app', producing
+          # ghcr.io/<owner>/<repo>-app.
+          matrix_json="$(TMP_LIST="$tmp_list" SLUG_STRATEGY="$SLUG_STRATEGY" python3 -c 'import json, os, sys; from collections import Counter; from pathlib import Path; strategy=os.environ["SLUG_STRATEGY"]; paths=[line.strip() for line in Path(os.environ["TMP_LIST"]).read_text(encoding="utf-8").splitlines() if line.strip()]; slug=lambda p: (Path(p).parts[2] if strategy == "third-segment" and len(Path(p).parts) >= 4 else Path(p).parent.name) or "app"; slugs=[slug(p) for p in paths]; collisions=sorted({s for s, c in Counter(slugs).items() if c > 1}); sys.exit("slug collision across paths: " + ", ".join(collisions)) if collisions else None; items=[{"dockerfile": p, "context": str(Path(p).parent), "name": slug(p)} for p in paths]; print(json.dumps(items))')"
 
           echo 'has_files=true' >> "$GITHUB_OUTPUT"
           echo "matrix=$matrix_json" >> "$GITHUB_OUTPUT"
