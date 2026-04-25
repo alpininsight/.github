@@ -1,4 +1,3 @@
----
 name: Python/Django Quality (reusable)
 
 on:
@@ -54,95 +53,21 @@ on:
         description: Optional read token for private GitHub dependencies.
         required: false
 
-permissions:
-  contents: read
-
 jobs:
-  quality:
-    name: Quality (Python ${{ matrix.python_version }})
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        python_version: ${{ fromJson(inputs.python_versions) }}
-    defaults:
-      run:
-        shell: bash
-        working-directory: ${{ inputs.working_directory }}
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python_version }}
-
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v7
-        with:
-          enable-cache: true
-
-      - name: Configure private GitHub dependency access
-        env:
-          GITHUB_READ_TOKEN: ${{ secrets.github_read_token }}
-        run: |
-          if [[ -n "${GITHUB_READ_TOKEN:-}" ]]; then
-            git config --global --add url."https://x-access-token:${GITHUB_READ_TOKEN}@github.com/".insteadOf "https://github.com/"
-            git config --global --add url."https://x-access-token:${GITHUB_READ_TOKEN}@github.com/".insteadOf "ssh://git@github.com/"
-            git config --global --add url."https://x-access-token:${GITHUB_READ_TOKEN}@github.com/".insteadOf "git@github.com:"
-          fi
-
-      - name: Sync dependencies
-        run: uv sync ${{ inputs.uv_sync_args }}
-
-      - name: Run pre-commit
-        if: ${{ inputs.run_pre_commit }}
-        run: ${{ inputs.pre_commit_command }}
-
-      - name: Lint
-        run: ${{ inputs.lint_command }}
-
-      - name: Format check
-        run: ${{ inputs.format_command }}
-
-      - name: Django system checks
-        if: ${{ inputs.django_check_command != '' }}
-        run: ${{ inputs.django_check_command }}
-
-      - name: Tests
-        run: ${{ inputs.test_command }}
-
-  quality_gate:
-    name: Quality Gate
-    runs-on: ubuntu-latest
-    needs: quality
-    if: ${{ always() }}
-    steps:
-      - name: Gate summary
-        env:
-          QUALITY_RESULT: ${{ needs.quality.result }}
-          PYTHON_VERSIONS: ${{ inputs.python_versions }}
-          WORKING_DIRECTORY: ${{ inputs.working_directory }}
-          DJANGO_CHECK_COMMAND: ${{ inputs.django_check_command }}
-        run: |
-          if [[ "$QUALITY_RESULT" != "success" ]]; then
-            echo "::error::One or more Python/Django quality matrix jobs failed or were cancelled."
-            exit 1
-          fi
-
-          echo "## Python/Django Quality Gate" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Attribute | Value |" >> "$GITHUB_STEP_SUMMARY"
-          echo "|-----------|-------|" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Python versions | $PYTHON_VERSIONS |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Working directory | $WORKING_DIRECTORY |" >> "$GITHUB_STEP_SUMMARY"
-          if [[ -n "$DJANGO_CHECK_COMMAND" ]]; then
-            echo "| Django checks | enabled |" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "| Django checks | disabled |" >> "$GITHUB_STEP_SUMMARY"
-          fi
-          echo "| Result | passed |" >> "$GITHUB_STEP_SUMMARY"
+  delegate:
+    name: Delegate to private central workflow
+    permissions:
+      contents: read
+    uses: alpininsight/.github-private/.github/workflows/python-django-quality-reusable.yml@develop
+    with:
+      python_versions: ${{ inputs.python_versions }}
+      working_directory: ${{ inputs.working_directory }}
+      uv_sync_args: ${{ inputs.uv_sync_args }}
+      run_pre_commit: ${{ inputs.run_pre_commit }}
+      pre_commit_command: ${{ inputs.pre_commit_command }}
+      lint_command: ${{ inputs.lint_command }}
+      format_command: ${{ inputs.format_command }}
+      django_check_command: ${{ inputs.django_check_command }}
+      test_command: ${{ inputs.test_command }}
+    secrets:
+      github_read_token: ${{ secrets.github_read_token }}

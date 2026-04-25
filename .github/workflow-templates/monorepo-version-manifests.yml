@@ -35,7 +35,7 @@ concurrency:
 jobs:
   generate-manifests:
     name: Generate Monorepo Version Manifests
-    uses: alpininsight/.github/.github/workflows/monorepo-version-manifests-reusable.yml@main
+    uses: alpininsight/.github-private/.github/workflows/monorepo-version-manifests-reusable.yml@develop
     with:
       components: ${{ github.event.inputs.components || '' }}
       force_all: ${{ github.event.inputs.force_all == 'true' }}
