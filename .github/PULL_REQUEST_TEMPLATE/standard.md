@@ -2,11 +2,6 @@
 
 - What changed and why?
 
-## Scope
-
-- [ ] Target branch is `develop`
-- [ ] Source branch follows policy (`feature/*`, `feat/*`, `fix/*`, `refactor/*`, `chore/*`, `docs/*`, `hotfix/*`)
-
 ## Validation
 
 - [ ] Relevant local checks/tests were executed
@@ -22,4 +17,3 @@
 
 - [ ] Conventional Commit(s) used
 - [ ] No production-impacting change without tests
-
