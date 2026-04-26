@@ -54,7 +54,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
-    uses: alpininsight/.github/.github/workflows/release-backlog-advisory-reusable.yml@<org-workflow-sha>
+    uses: alpininsight/.github-private/.github/workflows/release-backlog-advisory-reusable.yml@<org-workflow-sha>
     with:
       pr-number: ${{ github.event.pull_request.number }}
 ```
@@ -124,7 +124,7 @@ without required checks.
 
 ## Release Backlog Advisory
 
-**Reusable workflow:** `alpininsight/.github/.github/workflows/release-backlog-advisory-reusable.yml@<org-workflow-sha>`
+**Reusable workflow:** `alpininsight/.github-private/.github/workflows/release-backlog-advisory-reusable.yml@<org-workflow-sha>`
 
 Advises on `develop -> main` release backlog by comparing the actual file tree
 between `main` and `develop`, not raw commit counts.
@@ -182,7 +182,7 @@ release-backlog-advisory:
     contents: read
     pull-requests: write
   if: github.base_ref == 'develop'
-  uses: alpininsight/.github/.github/workflows/release-backlog-advisory-reusable.yml@<org-workflow-sha>
+  uses: alpininsight/.github-private/.github/workflows/release-backlog-advisory-reusable.yml@<org-workflow-sha>
   with:
     pr-number: ${{ github.event.pull_request.number }}
 ```
@@ -199,7 +199,7 @@ release-backlog-advisory:
 
 ## Python Django Quality Reusable Workflow
 
-**Reusable workflow:** `alpininsight/.github/.github/workflows/python-django-quality-reusable.yml@<org-workflow-sha>`
+**Reusable workflow:** `alpininsight/.github-private/.github/workflows/python-django-quality-reusable.yml@<org-workflow-sha>`
 
 This is the organization standard quality workflow for repositories that ship:
 
@@ -268,7 +268,7 @@ permissions:
 
 jobs:
   python-quality:
-    uses: alpininsight/.github/.github/workflows/python-django-quality-reusable.yml@<org-workflow-sha>
+    uses: alpininsight/.github-private/.github/workflows/python-django-quality-reusable.yml@<org-workflow-sha>
     with:
       python_versions: '["3.12", "3.13"]'
       uv_sync_args: --all-groups
@@ -288,7 +288,7 @@ jobs:
 
 ## Python Django Container Build Reusable Workflow
 
-**Reusable workflow:** `alpininsight/.github/.github/workflows/python-django-container-build-reusable.yml@<org-workflow-sha>`
+**Reusable workflow:** `alpininsight/.github-private/.github/workflows/python-django-container-build-reusable.yml@<org-workflow-sha>`
 
 This is the organization standard container-build workflow for repositories that
 ship:
@@ -365,7 +365,7 @@ permissions:
 
 jobs:
   container-build:
-    uses: alpininsight/.github/.github/workflows/python-django-container-build-reusable.yml@<org-workflow-sha>
+    uses: alpininsight/.github-private/.github/workflows/python-django-container-build-reusable.yml@<org-workflow-sha>
     with:
       image_name: ghcr.io/alpininsight/insight-ui-flow
       platforms: linux/amd64,linux/arm64
@@ -487,7 +487,7 @@ The workflow is identical across all repos. No customization needed.
 ## Monorepo Version Manifests
 
 **Template file:** `.github/workflows/monorepo-version-manifests.yml`  
-**Reusable backend:** `alpininsight/.github/.github/workflows/monorepo-version-manifests-reusable.yml@<org-workflow-sha>`
+**Reusable backend:** `alpininsight/.github-private/.github/workflows/monorepo-version-manifests-reusable.yml@<org-workflow-sha>`
 
 Generates per-component version artifacts for monorepos that keep projects
 under `projects/*`.
