@@ -1,6 +1,6 @@
 {
-  "name": "PR Branch Guard",
-  "description": "Enforce branch routing policy for pull requests (feature/fix/etc -> develop, develop -> main).",
+  "name": "PR Branch Guard (Alpine Insight)",
+  "description": "Alpine Insight starter that copies a thin caller to the private branch-routing backend.",
   "iconName": "octicon-git-pull-request",
   "categories": [
     "Automation",

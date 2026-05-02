@@ -1,6 +1,6 @@
 {
-  "name": "Scheduled pre-commit update",
-  "description": "Weekly pre-commit hook version updates via automated PR.",
+  "name": "Scheduled pre-commit update (Alpine Insight)",
+  "description": "Alpine Insight starter that copies a thin caller to the private pre-commit update backend.",
   "iconName": "octicon-sync",
   "categories": [
     "Automation",

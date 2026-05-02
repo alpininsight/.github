@@ -1,6 +1,6 @@
 {
-  "name": "PR Title Lint",
-  "description": "Enforce Conventional Commits format in pull request titles.",
+  "name": "PR Title Lint (Alpine Insight)",
+  "description": "Alpine Insight starter that copies a thin caller to the private PR-title backend.",
   "iconName": "octicon-typography",
   "categories": [
     "Automation",

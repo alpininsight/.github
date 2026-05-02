@@ -1,6 +1,6 @@
 {
-  "name": "GitVersion",
-  "description": "Org-standard GitVersion companion workflow for SemVer metadata on main/develop.",
+  "name": "GitVersion (Alpine Insight)",
+  "description": "Alpine Insight starter that copies a thin caller to the private GitVersion backend.",
   "iconName": "octicon-tag",
   "categories": [
     "Continuous integration",

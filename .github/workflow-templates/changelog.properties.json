@@ -1,6 +1,6 @@
 {
-  "name": "Changelog",
-  "description": "Auto-generate CHANGELOG.md on develop using git-cliff with PR-based auto-merge.",
+  "name": "Changelog (Alpine Insight)",
+  "description": "Alpine Insight starter that copies a thin caller to the private changelog backend.",
   "iconName": "octicon-log",
   "categories": [
     "Continuous integration",

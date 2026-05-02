@@ -1,4 +1,18 @@
-name: Monorepo Version Manifests
+---
+# =============================================================================
+# Alpine Insight workflow template
+# Source:
+#   - public template: alpininsight/.github/.github/workflow-templates/monorepo-version-manifests.yml
+#   - private backend: alpininsight/.github-private/.github/workflows/monorepo-version-manifests-reusable.yml@main
+# Purpose:
+#   - copies a thin monorepo version-manifest caller into the target repository
+#   - keeps org GitVersion manifest logic private and centrally maintained
+# When copied:
+#   - keep this header so the source remains visible in downstream repos
+#   - this template assumes a `projects/*` component layout
+# =============================================================================
+
+name: Monorepo Version Manifests (Alpine Insight)
 
 on:
   push:
@@ -16,17 +30,14 @@ on:
   workflow_dispatch:
     inputs:
       components:
-        description: "Comma-separated components (defaults to changed components)"
+        description: Comma-separated components (defaults to changed components)
         required: false
         default: ""
       force_all:
-        description: "Generate manifests for all components under projects/"
+        description: Generate manifests for all components under projects/
         required: false
         type: boolean
         default: false
-
-permissions:
-  contents: read
 
 concurrency:
   group: monorepo-version-manifests-${{ github.event.pull_request.number || github.ref }}
@@ -34,8 +45,9 @@ concurrency:
 
 jobs:
   generate-manifests:
-    name: Generate Monorepo Version Manifests
-    uses: alpininsight/.github-private/.github/workflows/monorepo-version-manifests-reusable.yml@develop
+    permissions:
+      contents: read
+    uses: alpininsight/.github-private/.github/workflows/monorepo-version-manifests-reusable.yml@main
     with:
       components: ${{ github.event.inputs.components || '' }}
       force_all: ${{ github.event.inputs.force_all == 'true' }}
@@ -43,4 +55,3 @@ jobs:
       base_sha: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
       head_sha: ${{ github.event.pull_request.head.sha || github.sha }}
       artifact_name_prefix: version-manifest
-    secrets: inherit

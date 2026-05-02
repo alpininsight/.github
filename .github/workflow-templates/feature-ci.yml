@@ -1,81 +1,43 @@
 ---
 # =============================================================================
-# Feature CI - Quality checks for pull requests
+# Alpine Insight workflow template
+# Source:
+#   - public template: alpininsight/.github/.github/workflow-templates/feature-ci.yml
+#   - private backends:
+#     - alpininsight/.github-private/.github/workflows/repository-policy-reusable.yml@main
+#     - alpininsight/.github-private/.github/workflows/python-django-quality-reusable.yml@main
+# Purpose:
+#   - copies the standard Alpine Insight CI caller into the target repository
+#   - keeps policy and quality logic private and centrally maintained
+# When copied:
+#   - keep this header so the source remains visible in downstream repos
+#   - adjust python_versions and optional commands for your repository as needed
 # =============================================================================
-# Runs linting, formatting, and tests on every PR targeting main or develop.
-# Customize the Python matrix and add project-specific steps as needed.
-# =============================================================================
-name: Feature CI (quality checks)
+
+name: Standard CI (Alpine Insight)
 
 on:
   pull_request:
-    branches: [main, develop]
-
-permissions:
-  contents: read
+    branches: [develop, main]
+  push:
+    branches: [develop, main]
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  test:
-    name: Test (Python ${{ matrix.python-version }})
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.12", "3.13", "3.14"]
+  repository-policy:
+    permissions:
+      contents: read
+      pull-requests: read
+    uses: alpininsight/.github-private/.github/workflows/repository-policy-reusable.yml@main
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
-        with:
-          enable-cache: true
-
-      - name: Sync dependencies
-        run: uv sync --frozen --dev
-
-      - name: Run pre-commit checks
-        run: uvx pre-commit run --all-files
-
-      - name: Lint (ruff)
-        run: uv run ruff check .
-
-      - name: Format check (ruff)
-        run: uv run ruff format --check .
-
-      - name: Tests (pytest)
-        run: uv run pytest
-
-  quality-gate:
-    name: Quality Gate
-    runs-on: ubuntu-latest
-    needs: test
-    if: ${{ always() }}
-    steps:
-      - name: Gate summary
-        env:
-          BASE_BRANCH: ${{ github.base_ref }}
-          TEST_RESULT: ${{ needs.test.result }}
-        run: |
-          if [[ "$TEST_RESULT" != "success" ]]; then
-            echo "::error::One or more matrix test jobs failed or were cancelled."
-            exit 1
-          fi
-          echo "## Quality Gate" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Attribute | Value |" >> "$GITHUB_STEP_SUMMARY"
-          echo "|-----------|-------|" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Target Branch | $BASE_BRANCH |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| All checks | passed |" >> "$GITHUB_STEP_SUMMARY"
+  quality:
+    permissions:
+      contents: read
+    uses: alpininsight/.github-private/.github/workflows/python-django-quality-reusable.yml@main
+    with:
+      python_versions: '["3.13"]'
+    secrets:
+      github_read_token: ${{ secrets.GITHUB_READ_TOKEN }}
