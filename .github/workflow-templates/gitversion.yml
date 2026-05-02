@@ -1,56 +1,33 @@
-name: GitVersion
+---
+# =============================================================================
+# Alpine Insight workflow template
+# Source:
+#   - public template: alpininsight/.github/.github/workflow-templates/gitversion.yml
+#   - private backend: alpininsight/.github-private/.github/workflows/gitversion-reusable.yml@main
+# Purpose:
+#   - copies a thin GitVersion caller into the target repository
+#   - keeps org versioning logic private and centrally maintained
+# When copied:
+#   - keep this header so the source remains visible in downstream repos
+#   - pair this workflow with the Alpine Insight release template
+# =============================================================================
 
-# Org release standard:
-#   - Pair this workflow with the GitVersion-based release workflow template
-#   - Do not substitute release-please in new repositories
-# Reference repo:
-#   - insight-lima-k8s-capi
+name: GitVersion (Alpine Insight)
 
 on:
   push:
-    branches:
-      - main
-      - develop
+    branches: [main, develop]
   pull_request:
-    branches:
-      - main
-      - develop
+    branches: [main, develop]
 
 concurrency:
   group: gitversion-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-permissions:
-  contents: read
-
 jobs:
   calculate-version:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Setup GitVersion
-        uses: gittools/actions/gitversion/setup@v3.0.0
-        with:
-          versionSpec: "6.0.x"
-
-      - name: Execute GitVersion
-        id: gitversion
-        uses: gittools/actions/gitversion/execute@v3.0.0
-        with:
-          useConfigFile: true
-          configFilePath: GitVersion.yml
-
-      - name: Publish version summary
-        run: |
-          {
-            echo "## GitVersion"
-            echo "- SemVer: \`${{ steps.gitversion.outputs.semVer }}\`"
-            echo "- FullSemVer: \`${{ steps.gitversion.outputs.fullSemVer }}\`"
-            echo "- InformationalVersion: \`${{ steps.gitversion.outputs.informationalVersion }}\`"
-            echo "- BranchName: \`${{ steps.gitversion.outputs.branchName }}\`"
-            echo "- Sha: \`${{ steps.gitversion.outputs.sha }}\`"
-          } >> "$GITHUB_STEP_SUMMARY"
+    permissions:
+      contents: read
+    uses: alpininsight/.github-private/.github/workflows/gitversion-reusable.yml@main
+    with:
+      config_file_path: GitVersion.yml

@@ -1,6 +1,6 @@
 {
-  "name": "Release",
-  "description": "Org-standard GitVersion release workflow — creates GitHub Releases on push to main with workflow_dispatch fallback.",
+  "name": "Release (Alpine Insight)",
+  "description": "Alpine Insight starter that copies a thin caller to the private GitVersion release backend.",
   "iconName": "octicon-tag",
   "categories": [
     "Continuous integration",

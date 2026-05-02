@@ -1,212 +1,38 @@
 ---
 # =============================================================================
-# Container Build - ghcr.io publish with blue-green semver tags
-# =============================================================================
-# Standard container-build workflow for repos shipping Dockerfiles under a
-# matrix path (e.g. connectors/<type>/<slug>/Dockerfile or services/<svc>/
-# Dockerfile). Detects all Dockerfiles, derives a canonical image slug, and
-# pushes to ghcr.io with a tag set that supports blue-green deployments.
-#
-# Triggers:
-#   - pull_request (develop/main, Dockerfile/.dockerignore paths) -> build-only
-#   - push (develop/main, any path)                               -> build + push branch tags
-#   - release: [published]                                        -> build + push semver tags
-#   - workflow_dispatch                                           -> manual dispatch with optional glob
-#
-# Tag strategy (via docker/metadata-action):
-#   - type=sha,prefix=sha-                      -> immutable, always
-#   - type=ref,event=branch                     -> :develop / :main on push
-#   - type=raw,value=latest,enable=main         -> :latest (production anchor)
-#   - type=semver,pattern=v{{version}}          -> :v1.2.3 on release (blue-green target)
-#   - type=semver,pattern=v{{major}}.{{minor}}  -> :v1.2 on release
-#   - type=semver,pattern=v{{major}}            -> :v1 on release
-#
-# Image naming: ghcr.io/<owner>/<repo>-<slug>
-# Default slug:  last path segment of the Dockerfile's parent directory.
-# Override via workflow_dispatch input `slug_strategy` (last|third-segment).
-#
+# Alpine Insight workflow template
+# Source:
+#   - public template: alpininsight/.github/.github/workflow-templates/container-build.yml
+#   - private backend: alpininsight/.github-private/.github/workflows/python-django-container-build-reusable.yml@main
+# Purpose:
+#   - copies a thin caller for the Alpine Insight Python/Django container standard
+#   - keeps build, publish, and runtime-contract logic private and centrally maintained
+# When copied:
+#   - replace PUBLIC_BASE_URL with the canonical service URL before enabling runtime smoke
+#   - keep the caller thin; extend the private backend instead of forking the logic
 # =============================================================================
 
-name: Container Build
+name: Container Build (Alpine Insight)
 
 on:
   pull_request:
     branches: [develop, main]
-    paths:
-      - "**/Dockerfile"
-      - "**/.dockerignore"
   push:
     branches: [develop, main]
-  release:
-    types: [published]
   workflow_dispatch:
-    inputs:
-      dockerfile_glob:
-        description: "Dockerfile glob pattern"
-        required: false
-        default: "**/Dockerfile"
-      slug_strategy:
-        description: "Slug strategy: 'last' (Path.parent.name) or 'third-segment' (parts[2], e.g. connectors/<type>/<slug>/...)"
-        required: false
-        default: "last"
-        type: choice
-        options:
-          - last
-          - third-segment
 
 concurrency:
   group: container-build-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-permissions:
-  contents: read
-  packages: write
-
 jobs:
-  detect:
-    name: detect dockerfiles
-    runs-on: ubuntu-latest
-    outputs:
-      has_files: ${{ steps.detect.outputs.has_files }}
-      matrix: ${{ steps.detect.outputs.matrix }}
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Detect dockerfiles
-        id: detect
-        shell: bash
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          BASE_REF: ${{ github.base_ref }}
-          BEFORE_SHA: ${{ github.event.before }}
-          HEAD_SHA: ${{ github.sha }}
-          INPUT_GLOB: ${{ github.event.inputs.dockerfile_glob || '**/Dockerfile' }}
-          SLUG_STRATEGY: ${{ github.event.inputs.slug_strategy || 'last' }}
-        run: |
-          set -euo pipefail
-
-          tmp_changed="$(mktemp)"
-          tmp_list="$(mktemp)"
-
-          if [ "$EVENT_NAME" = "pull_request" ]; then
-            # PR events: build only files that changed in the PR diff
-            git fetch origin "$BASE_REF":"refs/remotes/origin/$BASE_REF"
-            git diff --name-only "origin/$BASE_REF...$HEAD_SHA" > "$tmp_changed" || true
-          else
-            # push, release, workflow_dispatch: enumerate all Dockerfiles so
-            # code-only merges, release events, and manual runs all rebuild.
-            python3 -c 'from pathlib import Path; import sys; pattern=sys.argv[1]; [print(p.as_posix()) for p in Path(".").glob(pattern) if p.is_file() and p.name == "Dockerfile"]' "$INPUT_GLOB" > "$tmp_changed" || true
-          fi
-
-          while IFS= read -r changed_path; do
-            [ -n "$changed_path" ] || continue
-            case "$changed_path" in
-              *Dockerfile)
-                candidate="$changed_path"
-                ;;
-              *.dockerignore)
-                candidate="$(dirname "$changed_path")/Dockerfile"
-                ;;
-              *)
-                continue
-                ;;
-            esac
-
-            if [ -f "$candidate" ]; then
-              echo "$candidate" >> "$tmp_list"
-            fi
-          done < "$tmp_changed"
-
-          sort -u "$tmp_list" -o "$tmp_list"
-
-          if [ ! -s "$tmp_list" ]; then
-            echo 'has_files=false' >> "$GITHUB_OUTPUT"
-            echo 'matrix=[]' >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          # Derive a canonical image slug per dockerfile and fail fast on
-          # slug collisions. Default strategy is the last path segment of the
-          # Dockerfile parent (services/<svc>/Dockerfile -> svc). Repos with
-          # a deeper layout (e.g. connectors/<type>/<slug>/...) can use
-          # 'third-segment' via workflow_dispatch input. Root-level
-          # Dockerfiles (parent == '.') fall back to 'app', producing
-          # ghcr.io/<owner>/<repo>-app.
-          matrix_json="$(TMP_LIST="$tmp_list" SLUG_STRATEGY="$SLUG_STRATEGY" python3 -c 'import json, os, sys; from collections import Counter; from pathlib import Path; strategy=os.environ["SLUG_STRATEGY"]; paths=[line.strip() for line in Path(os.environ["TMP_LIST"]).read_text(encoding="utf-8").splitlines() if line.strip()]; slug=lambda p: (Path(p).parts[2] if strategy == "third-segment" and len(Path(p).parts) >= 4 else Path(p).parent.name) or "app"; slugs=[slug(p) for p in paths]; collisions=sorted({s for s, c in Counter(slugs).items() if c > 1}); sys.exit("slug collision across paths: " + ", ".join(collisions)) if collisions else None; items=[{"dockerfile": p, "context": str(Path(p).parent), "name": slug(p)} for p in paths]; print(json.dumps(items))')"
-
-          echo 'has_files=true' >> "$GITHUB_OUTPUT"
-          echo "matrix=$matrix_json" >> "$GITHUB_OUTPUT"
-
-  build:
-    name: build dockerfiles
-    needs: detect
-    if: needs.detect.outputs.has_files == 'true'
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        item: ${{ fromJson(needs.detect.outputs.matrix) }}
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to ghcr.io
-        if: github.event_name != 'pull_request'
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Generate image metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-${{ matrix.item.name }}
-          tags: |
-            type=sha,prefix=sha-
-            type=ref,event=branch
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
-            type=semver,pattern=v{{version}},enable=${{ github.event_name == 'release' }}
-            type=semver,pattern=v{{major}}.{{minor}},enable=${{ github.event_name == 'release' }}
-            type=semver,pattern=v{{major}},enable=${{ github.event_name == 'release' }}
-
-      - name: Build and push
-        uses: docker/build-push-action@v6
-        with:
-          context: ${{ matrix.item.context }}
-          file: ${{ matrix.item.dockerfile }}
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=${{ matrix.item.name }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.item.name }}
-
-      - name: Summary
-        shell: bash
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          IMAGE_TAGS: ${{ steps.meta.outputs.tags }}
-        run: |
-          {
-            echo "## Container Build"
-            echo "- Dockerfile: \`${{ matrix.item.dockerfile }}\`"
-            echo "- Context: \`${{ matrix.item.context }}\`"
-            echo "- Slug: \`${{ matrix.item.name }}\`"
-            if [ "$EVENT_NAME" = "pull_request" ]; then
-              echo "- Build only (PR, no push)"
-            else
-              echo "- **Pushed to ghcr.io**"
-              echo '```'
-              echo "$IMAGE_TAGS"
-              echo '```'
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
+  container:
+    permissions:
+      contents: read
+      packages: write
+    uses: alpininsight/.github-private/.github/workflows/python-django-container-build-reusable.yml@main
+    with:
+      image_name: ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}
+      public_base_url: https://replace-me.example.com
+      push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/develop' }}
+      promote_existing_tree_digest: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}

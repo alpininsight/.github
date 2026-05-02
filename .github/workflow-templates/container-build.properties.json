@@ -1,6 +1,6 @@
 {
-  "name": "Container Build",
-  "description": "Org-standard container-build workflow — builds and pushes Dockerfiles to ghcr.io with blue-green semver tags on release events.",
+  "name": "Container Build (Alpine Insight)",
+  "description": "Alpine Insight starter that copies a thin caller to the private Python/Django container backend.",
   "iconName": "octicon-container",
   "categories": [
     "Continuous integration",

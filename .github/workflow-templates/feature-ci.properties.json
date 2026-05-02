@@ -1,6 +1,6 @@
 {
-  "name": "Feature CI",
-  "description": "Quality checks (lint, format, test) for pull requests using uv, ruff, and pytest.",
+  "name": "Standard CI (Alpine Insight)",
+  "description": "Alpine Insight starter that copies thin repository-policy and quality callers to the private CI backends.",
   "iconName": "octicon-check-circle",
   "categories": [
     "Continuous integration",

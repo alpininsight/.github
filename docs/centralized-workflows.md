@@ -1,10 +1,13 @@
 # Centralized Workflows
 
 This document describes the standardized GitHub Actions workflows that all
-Alpine Insight repositories should adopt. These workflows are designed to work
-consistently across repos with and without branch protection rules, and each
-section explains why a workflow exists so developers can decide when it is
-required versus optional.
+Alpine Insight repositories should adopt. Public `.github/workflow-templates/*`
+files are starter callers only; canonical implementation lives in
+`alpininsight/.github-private/.github/workflows/*@main`.
+
+These workflows are designed to work consistently across repos with and without
+branch protection rules, and each section explains why a workflow exists so
+developers can decide when it is required versus optional.
 
 Related planning document:
 - [Atomic Design Workflow Standardization Plan](./atomic-design-workflow-standardization-plan.md)
@@ -30,16 +33,16 @@ Related planning document:
 
 ## Reusable Workflow Consumer Contract
 
-When a repository consumes a reusable workflow from `alpininsight/.github`, two
-rules apply:
+When a repository consumes a reusable workflow from
+`alpininsight/.github-private`, two rules apply:
 
-1. Pin the reusable workflow to a commit SHA, not `@main`.
+1. Use `@main`, because `.github-private:main` is the stable consumer surface.
 2. Grant required permissions in the caller job or workflow; a called workflow
    cannot elevate the token beyond what the caller grants.
 
 This matters in practice for two recurring failure modes:
 
-- `zizmor` flags `uses: ...@main` as `unpinned-uses`
+- callers should consciously accept that `@main` is the Alpine Insight stability contract for central workflows
 - comment-writing reusable workflows fail silently if the caller keeps only
   `contents: read`
 
@@ -54,7 +57,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
-    uses: alpininsight/.github-private/.github/workflows/release-backlog-advisory-reusable.yml@<org-workflow-sha>
+    uses: alpininsight/.github-private/.github/workflows/release-backlog-advisory-reusable.yml@main
     with:
       pr-number: ${{ github.event.pull_request.number }}
 ```
@@ -115,7 +118,7 @@ without required checks.
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| `Missing CHANGELOG_BOT_TOKEN secret` error | Secret not configured | Add `CHANGELOG_BOT_TOKEN` in repo Settings > Secrets |
+| `Missing CHANGELOG_BOT_TOKEN secret` error | Secret not configured | Ensure `CHANGELOG_BOT_TOKEN` is available to the repo, preferably as an org secret |
 | PR created but not merged | Auto-merge not enabled + required checks exist | Enable "Allow auto-merge" in repo Settings > General |
 | `Auto-merge unavailable, attempting direct merge` then fails | Required checks block direct merge | Enable auto-merge in repo settings |
 | Changelog not updating | `cliff.toml` missing or misconfigured | Ensure `cliff.toml` exists in repo root |
@@ -124,7 +127,7 @@ without required checks.
 
 ## Release Backlog Advisory
 
-**Reusable workflow:** `alpininsight/.github-private/.github/workflows/release-backlog-advisory-reusable.yml@<org-workflow-sha>`
+**Reusable workflow:** `alpininsight/.github-private/.github/workflows/release-backlog-advisory-reusable.yml@main`
 
 Advises on `develop -> main` release backlog by comparing the actual file tree
 between `main` and `develop`, not raw commit counts.
@@ -182,7 +185,7 @@ release-backlog-advisory:
     contents: read
     pull-requests: write
   if: github.base_ref == 'develop'
-  uses: alpininsight/.github-private/.github/workflows/release-backlog-advisory-reusable.yml@<org-workflow-sha>
+  uses: alpininsight/.github-private/.github/workflows/release-backlog-advisory-reusable.yml@main
   with:
     pr-number: ${{ github.event.pull_request.number }}
 ```
@@ -199,7 +202,7 @@ release-backlog-advisory:
 
 ## Python Django Quality Reusable Workflow
 
-**Reusable workflow:** `alpininsight/.github-private/.github/workflows/python-django-quality-reusable.yml@<org-workflow-sha>`
+**Reusable workflow:** `alpininsight/.github-private/.github/workflows/python-django-quality-reusable.yml@main`
 
 This is the organization standard quality workflow for repositories that ship:
 
@@ -268,7 +271,7 @@ permissions:
 
 jobs:
   python-quality:
-    uses: alpininsight/.github-private/.github/workflows/python-django-quality-reusable.yml@<org-workflow-sha>
+    uses: alpininsight/.github-private/.github/workflows/python-django-quality-reusable.yml@main
     with:
       python_versions: '["3.12", "3.13"]'
       uv_sync_args: --all-groups
@@ -288,7 +291,7 @@ jobs:
 
 ## Python Django Container Build Reusable Workflow
 
-**Reusable workflow:** `alpininsight/.github-private/.github/workflows/python-django-container-build-reusable.yml@<org-workflow-sha>`
+**Reusable workflow:** `alpininsight/.github-private/.github/workflows/python-django-container-build-reusable.yml@main`
 
 This is the organization standard container-build workflow for repositories that
 ship:
@@ -365,7 +368,7 @@ permissions:
 
 jobs:
   container-build:
-    uses: alpininsight/.github-private/.github/workflows/python-django-container-build-reusable.yml@<org-workflow-sha>
+    uses: alpininsight/.github-private/.github/workflows/python-django-container-build-reusable.yml@main
     with:
       image_name: ghcr.io/alpininsight/insight-ui-flow
       platforms: linux/amd64,linux/arm64
@@ -440,7 +443,7 @@ Validates that pull request titles follow the Conventional Commits specification
 
 | Decision | Rationale |
 |----------|-----------|
-| `pull_request_target` (not `pull_request`) | Works with PRs from forks |
+| `pull_request` (not `pull_request_target`) | Matches the current Alpine Insight reusable PR-title contract |
 | `requireScope: false` | Scopes are optional but encouraged |
 | `GITHUB_TOKEN` sufficient | Read-only PR access, no anti-cascade issue |
 
@@ -476,7 +479,7 @@ Runs `pre-commit autoupdate` weekly and creates a PR with version bumps.
 
 | Secret | Purpose |
 |--------|---------|
-| `INSIGHT_TOKEN` | PAT with `contents: write` and `pull-requests: write` for PR creation |
+| `INSIGHT_TOKEN` | PAT with `contents: write` and `pull-requests: write` for PR creation; expose it to the repo, preferably as an org secret |
 
 ### Adapting for Your Repo
 
@@ -487,7 +490,7 @@ The workflow is identical across all repos. No customization needed.
 ## Monorepo Version Manifests
 
 **Template file:** `.github/workflows/monorepo-version-manifests.yml`  
-**Reusable backend:** `alpininsight/.github-private/.github/workflows/monorepo-version-manifests-reusable.yml@<org-workflow-sha>`
+**Reusable backend:** `alpininsight/.github-private/.github/workflows/monorepo-version-manifests-reusable.yml@main`
 
 Generates per-component version artifacts for monorepos that keep projects
 under `projects/*`.
@@ -654,13 +657,13 @@ The monorepo version-manifest workflow does not require additional secrets.
 2. Create a token scoped to the `alpininsight` organization
 3. **Permissions:** Contents (read/write), Pull requests (read/write), Metadata (read)
 4. **Resource access:** Apply to all repos that use the changelog workflow
-5. Add as a repository secret named `CHANGELOG_BOT_TOKEN`
+5. Expose it to GitHub Actions as `CHANGELOG_BOT_TOKEN`, preferably as an org secret with access only to the required repos
 
 ### Rotation
 
 - Set a reasonable expiry (e.g., 1 year)
 - Document the expiry date and set a calendar reminder
-- When rotating, update the secret in all repos simultaneously
+- When rotating, update the org secret or any attached repo secrets consistently
 
 ---
 
@@ -692,7 +695,7 @@ When adding these workflows to a new repo:
 - [ ] Copy `release.yml` to `.github/workflows/`
 - [ ] Copy `GitVersion.yml` to repo root
 - [ ] Ensure `cliff.toml` exists (git-cliff configuration)
-- [ ] Add `CHANGELOG_BOT_TOKEN` secret to the repo
+- [ ] Verify `CHANGELOG_BOT_TOKEN` is available to the repo
 - [ ] Enable "Allow auto-merge" in repo settings (recommended)
 - [ ] Verify `prevent-increment-of-merged-branch-version: false` on `main` branch
 

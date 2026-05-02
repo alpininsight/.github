@@ -11,47 +11,45 @@ Organization-level GitHub defaults and standards for all repositories in `alpini
   - `SUPPORT.md`
 - Organization-wide issue and pull request templates
 - Organization-wide workflow templates for new repositories
+  - public starter templates only; canonical workflow logic lives in `.github-private`
 - Label definitions and sync automation
 
 ## Atomic design model used here
 
 - Atoms: policy documents (`CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`, `SUPPORT.md`)
 - Molecules: collaboration templates (`.github/ISSUE_TEMPLATE/*`, `.github/PULL_REQUEST_TEMPLATE/*`)
-- Organisms: automation templates (`.github/workflow-templates/*`) and reusable workflows (`.github/workflows/*`)
+- Organisms: branded starter templates (`.github/workflow-templates/*`)
 - Templates: repository bootstrap standards and examples in `.github/README.md`
 
 ## Workflow templates
 
-Canonical workflow templates that all repositories should adopt. See
-[docs/centralized-workflows.md](docs/centralized-workflows.md) for full
-documentation, troubleshooting, and adoption checklist.
+These files are public starter templates. When copied into a repository, they
+keep a visible Alpine Insight source header and delegate to the private reusable
+workflow catalog in `alpininsight/.github-private`.
+
+They are meant for Alpine Insight organization repositories. The public repo is
+the discovery and branding surface; the private repo remains the implementation
+source of record.
 
 | Template | Purpose | Prerequisites |
 |----------|---------|---------------|
-| `changelog.yml` | Auto-generate CHANGELOG.md via git-cliff with PR-based auto-merge | `cliff.toml`, `CHANGELOG_BOT_TOKEN` org secret |
-| `gitversion.yml` | Calculate SemVer metadata from conventional commits | `GitVersion.yml` in repo root |
-| `monorepo-version-manifests.yml` | Generate per-component version manifest artifacts for `projects/*` monorepos | `GitVersion.yml`, `projects/<component>/` layout |
-| `pr-branch-guard.yml` | Enforce branch naming conventions on PRs | -- |
+| `changelog.yml` | Thin caller for the Alpine Insight changelog backend | `cliff.toml`, `CHANGELOG_BOT_TOKEN` available to the repo |
+| `container-build.yml` | Thin caller for the Alpine Insight Python/Django container backend | Dockerfile, repo-specific `public_base_url` |
+| `feature-ci.yml` | Thin caller for repository policy and Python/Django quality backends | `pyproject.toml` |
+| `gitversion.yml` | Thin caller for the Alpine Insight GitVersion backend | `GitVersion.yml` |
+| `monorepo-version-manifests.yml` | Thin caller for `projects/*` monorepo version manifests | `GitVersion.yml`, `projects/<component>/` layout |
+| `pr-branch-guard.yml` | Thin caller for branch-routing policy only | -- |
+| `pr-title-lint.yml` | Thin caller for Alpine Insight PR title validation | -- |
+| `release.yml` | Thin caller for the Alpine Insight GitVersion release backend | `GitVersion.yml` |
+| `scheduled-pre-commit-update.yml` | Thin caller for automated pre-commit updates | `.pre-commit-config.yaml`, `INSIGHT_TOKEN` available to the repo |
 
 ### Adoption checklist (per repo)
 
-- [ ] Copy `changelog.yml` to `.github/workflows/`
-- [ ] Ensure `cliff.toml` exists in repo root
-- [ ] Ensure `GitVersion.yml` exists with `prevent-increment-of-merged-branch-version: false` on `main`
-- [ ] Ensure `GitVersion.yml` uses `develop` with `tag: alpha` and `increment: Patch` to stay aligned with `main`
-- [ ] Verify `CHANGELOG_BOT_TOKEN` org secret is accessible (visibility: ALL)
-- [ ] Enable "Allow auto-merge" in repo Settings > General (recommended)
-- [ ] For monorepos: copy `monorepo-version-manifests.yml` and keep components under `projects/*`
-
-### Currently synchronized repositories
-
-Tier 1 (active, with `develop` branch):
-`insight-lima-k8s-capi`, `capi-provider-ssh`, `insight-ai-models`,
-`hybrid-hw-foundation`, `insight-ci-claude`, `insight-ci`,
-`insight-ci-claude-docs`, `insight-lima-k8s-dev`, `sources`
-
-Tier 2 (adopted):
-`legi-flow`, `posidra-gateway`, `sre`, `parl-q`, `insight-ui` (pending)
+- [ ] Copy the template to `.github/workflows/`
+- [ ] Keep the Alpine Insight source header in the copied file
+- [ ] Replace placeholder inputs such as `public_base_url`
+- [ ] Ensure any referenced GitHub Actions secrets are available to the repo, preferably via org-wide secrets
+- [ ] Prefer extending `.github-private` over forking copied workflow logic
 
 ## Notes
 

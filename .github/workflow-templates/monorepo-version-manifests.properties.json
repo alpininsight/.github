@@ -1,6 +1,6 @@
 {
-  "name": "Monorepo Version Manifests",
-  "description": "Generate per-component GitVersion manifest artifacts for repositories using projects/* layout.",
+  "name": "Monorepo Version Manifests (Alpine Insight)",
+  "description": "Alpine Insight starter that copies a thin caller to the private monorepo GitVersion manifest backend.",
   "iconName": "octicon-tag",
   "categories": [
     "Continuous integration",
