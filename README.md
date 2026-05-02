@@ -33,7 +33,7 @@ source of record.
 
 | Template | Purpose | Prerequisites |
 |----------|---------|---------------|
-| `changelog.yml` | Thin caller for the Alpine Insight changelog backend | `cliff.toml`, `CHANGELOG_BOT_TOKEN` |
+| `changelog.yml` | Thin caller for the Alpine Insight changelog backend | `cliff.toml`, `CHANGELOG_BOT_TOKEN` available to the repo |
 | `container-build.yml` | Thin caller for the Alpine Insight Python/Django container backend | Dockerfile, repo-specific `public_base_url` |
 | `feature-ci.yml` | Thin caller for repository policy and Python/Django quality backends | `pyproject.toml` |
 | `gitversion.yml` | Thin caller for the Alpine Insight GitVersion backend | `GitVersion.yml` |
@@ -41,14 +41,14 @@ source of record.
 | `pr-branch-guard.yml` | Thin caller for branch-routing policy only | -- |
 | `pr-title-lint.yml` | Thin caller for Alpine Insight PR title validation | -- |
 | `release.yml` | Thin caller for the Alpine Insight GitVersion release backend | `GitVersion.yml` |
-| `scheduled-pre-commit-update.yml` | Thin caller for automated pre-commit updates | `.pre-commit-config.yaml`, `INSIGHT_TOKEN` |
+| `scheduled-pre-commit-update.yml` | Thin caller for automated pre-commit updates | `.pre-commit-config.yaml`, `INSIGHT_TOKEN` available to the repo |
 
 ### Adoption checklist (per repo)
 
 - [ ] Copy the template to `.github/workflows/`
 - [ ] Keep the Alpine Insight source header in the copied file
 - [ ] Replace placeholder inputs such as `public_base_url`
-- [ ] Configure any referenced secrets in the target repository
+- [ ] Ensure any referenced GitHub Actions secrets are available to the repo, preferably via org-wide secrets
 - [ ] Prefer extending `.github-private` over forking copied workflow logic
 
 ## Notes

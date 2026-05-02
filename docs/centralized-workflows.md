@@ -118,7 +118,7 @@ without required checks.
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| `Missing CHANGELOG_BOT_TOKEN secret` error | Secret not configured | Add `CHANGELOG_BOT_TOKEN` in repo Settings > Secrets |
+| `Missing CHANGELOG_BOT_TOKEN secret` error | Secret not configured | Ensure `CHANGELOG_BOT_TOKEN` is available to the repo, preferably as an org secret |
 | PR created but not merged | Auto-merge not enabled + required checks exist | Enable "Allow auto-merge" in repo Settings > General |
 | `Auto-merge unavailable, attempting direct merge` then fails | Required checks block direct merge | Enable auto-merge in repo settings |
 | Changelog not updating | `cliff.toml` missing or misconfigured | Ensure `cliff.toml` exists in repo root |
@@ -479,7 +479,7 @@ Runs `pre-commit autoupdate` weekly and creates a PR with version bumps.
 
 | Secret | Purpose |
 |--------|---------|
-| `INSIGHT_TOKEN` | PAT with `contents: write` and `pull-requests: write` for PR creation |
+| `INSIGHT_TOKEN` | PAT with `contents: write` and `pull-requests: write` for PR creation; expose it to the repo, preferably as an org secret |
 
 ### Adapting for Your Repo
 
@@ -657,13 +657,13 @@ The monorepo version-manifest workflow does not require additional secrets.
 2. Create a token scoped to the `alpininsight` organization
 3. **Permissions:** Contents (read/write), Pull requests (read/write), Metadata (read)
 4. **Resource access:** Apply to all repos that use the changelog workflow
-5. Add as a repository secret named `CHANGELOG_BOT_TOKEN`
+5. Expose it to GitHub Actions as `CHANGELOG_BOT_TOKEN`, preferably as an org secret with access only to the required repos
 
 ### Rotation
 
 - Set a reasonable expiry (e.g., 1 year)
 - Document the expiry date and set a calendar reminder
-- When rotating, update the secret in all repos simultaneously
+- When rotating, update the org secret or any attached repo secrets consistently
 
 ---
 
@@ -695,7 +695,7 @@ When adding these workflows to a new repo:
 - [ ] Copy `release.yml` to `.github/workflows/`
 - [ ] Copy `GitVersion.yml` to repo root
 - [ ] Ensure `cliff.toml` exists (git-cliff configuration)
-- [ ] Add `CHANGELOG_BOT_TOKEN` secret to the repo
+- [ ] Verify `CHANGELOG_BOT_TOKEN` is available to the repo
 - [ ] Enable "Allow auto-merge" in repo settings (recommended)
 - [ ] Verify `prevent-increment-of-merged-branch-version: false` on `main` branch
 

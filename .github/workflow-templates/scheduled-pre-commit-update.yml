@@ -9,7 +9,7 @@
 #   - keeps org automation logic private and centrally maintained
 # When copied:
 #   - keep this header so the source remains visible in downstream repos
-#   - configure INSIGHT_TOKEN so the automation PR can trigger downstream CI
+#   - ensure INSIGHT_TOKEN is available to the repo, preferably via an org-level GitHub Actions secret
 # =============================================================================
 
 name: Scheduled pre-commit update (Alpine Insight)
