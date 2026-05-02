@@ -12,14 +12,14 @@ Organization-level GitHub defaults and standards for all repositories in `alpini
 - Organization-wide issue and pull request templates
 - Organization-wide workflow templates for new repositories
   - public starter templates only; canonical workflow logic lives in `.github-private`
-- Label definitions and sync automation
+- Public-safe workflow starter adoption guidance
 
 ## Atomic design model used here
 
 - Atoms: policy documents (`CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`, `SUPPORT.md`)
 - Molecules: collaboration templates (`.github/ISSUE_TEMPLATE/*`, `.github/PULL_REQUEST_TEMPLATE/*`)
 - Organisms: branded starter templates (`.github/workflow-templates/*`)
-- Templates: repository bootstrap standards and examples in `.github/README.md`
+- Templates: repository bootstrap standards and examples in `docs/centralized-workflows.md`
 
 ## Workflow templates
 
