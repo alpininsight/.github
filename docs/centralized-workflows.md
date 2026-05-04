@@ -39,6 +39,17 @@ When copying a starter template into a repository:
 4. Prefer org-wide GitHub Actions secrets where appropriate.
 5. Extend `.github-private` instead of forking copied logic whenever possible.
 
+Copied workflow files should stay thin callers. Do not paste the reusable
+workflow implementation into product repositories to make local fixes. If the
+same behavior should apply across Alpine Insight repositories, change the
+matching reusable workflow in `alpininsight/.github-private` and let repository
+callers keep using the public starter template shape.
+
+For example, changelog formatting, PR creation, and auto-merge behavior belong
+in `.github-private/.github/workflows/changelog-reusable.yml`. Product
+repositories should keep only the copied `.github/workflow-templates/changelog.yml`
+caller, plus their repository-specific secrets.
+
 ## Notes on secrets
 
 The public starter templates refer only to the GitHub Actions secret names that
