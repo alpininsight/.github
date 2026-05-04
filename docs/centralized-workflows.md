@@ -47,8 +47,9 @@ callers keep using the public starter template shape.
 
 For example, changelog formatting, PR creation, and auto-merge behavior belong
 in `.github-private/.github/workflows/changelog-reusable.yml`. Product
-repositories should keep only the copied `.github/workflow-templates/changelog.yml`
-caller, plus their repository-specific secrets.
+repositories should copy the public `.github/workflow-templates/changelog.yml`
+starter into `.github/workflows/changelog.yml` and keep only that caller plus
+their repository-specific secrets.
 
 ## Notes on secrets
 
