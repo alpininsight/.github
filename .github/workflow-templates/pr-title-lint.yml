@@ -2,13 +2,13 @@
 # =============================================================================
 # PR title - Conventional Commits gate
 # =============================================================================
-# Contributor template only.
+# Public-compatible Contributor template.
 #
-# The actual workflow implementation is maintained in:
-#   alpininsight/.github-private/.github/workflows/reusable-pr-title.yml@main
+# Public repositories cannot call private reusable workflows. Keep this local
+# template aligned with the policy in .github-private/reusable-pr-title.yml.
 # =============================================================================
 
-name: PR title
+name: PR Title Lint
 
 on:
   pull_request_target:
@@ -18,6 +18,25 @@ permissions:
   pull-requests: read
 
 jobs:
-  validate:
+  lint:
     name: Validate PR title
-    uses: alpininsight/.github-private/.github/workflows/reusable-pr-title.yml@main
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PR title format
+        uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            perf
+            refactor
+            docs
+            chore
+            ci
+            test
+            build
+            style
+          requireScope: false
+          allowBreakingChanges: true

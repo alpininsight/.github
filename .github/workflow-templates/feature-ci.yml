@@ -4,11 +4,13 @@
 # =============================================================================
 # Contributor template only.
 #
-# The actual workflow implementation is maintained in:
-#   alpininsight/.github-private/.github/workflows/reusable-ci.yml@main
+# Public repositories cannot call private reusable workflows. This public
+# template therefore calls the public reusable workflow mirror. The process is
+# still led by .github-private; update the private source first, then mirror the
+# public-compatible change here.
 #
 # Keep this repository-local file small. If the CI process needs to change,
-# update .github-private first and then refresh this template.
+# update .github-private first and then refresh this template/public mirror.
 # =============================================================================
 
 name: Feature CI
@@ -29,12 +31,10 @@ concurrency:
 
 jobs:
   ci:
-    name: Repository Policy
-    uses: alpininsight/.github-private/.github/workflows/reusable-ci.yml@main
+    name: Python/Django Quality
+    uses: alpininsight/.github/.github/workflows/python-django-quality-reusable.yml@main
     with:
-      python-version: "3.13"
-      coverage-package: ""
-      run-mypy: true
-      run-docker-build: true
-      generate-fernet-key: false
-    secrets: inherit
+      python_versions: '["3.12", "3.13", "3.14"]'
+      pre_commit_command: "SKIP=no-commit-to-branch uvx pre-commit run --all-files"
+    secrets:
+      github_read_token: ${{ secrets.INSIGHT_TOKEN_RO }}

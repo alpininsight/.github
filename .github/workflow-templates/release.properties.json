@@ -1,12 +1,12 @@
 {
   "name": "Release",
-  "description": "Thin caller for the private organization release workflow.",
+  "description": "Public-compatible GitVersion release workflow.",
   "iconName": "octicon-tag",
   "categories": [
     "Continuous integration",
     "Automation"
   ],
   "filePatterns": [
-    "^pyproject\\.toml$"
+    "^GitVersion\\.yml$"
   ]
 }

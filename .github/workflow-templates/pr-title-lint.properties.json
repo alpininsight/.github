@@ -1,6 +1,6 @@
 {
   "name": "PR Title Lint",
-  "description": "Thin caller for the private organization Conventional Commits PR title workflow.",
+  "description": "Public-compatible Conventional Commits PR title workflow.",
   "iconName": "octicon-typography",
   "categories": [
     "Automation",

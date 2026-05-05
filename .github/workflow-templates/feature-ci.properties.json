@@ -1,6 +1,6 @@
 {
   "name": "Feature CI",
-  "description": "Thin caller for the private organization quality workflow in .github-private.",
+  "description": "Public-compatible caller for the organization Python/Django quality workflow.",
   "iconName": "octicon-check-circle",
   "categories": [
     "Continuous integration",

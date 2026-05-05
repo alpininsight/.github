@@ -8,15 +8,15 @@ required versus optional.
 
 ## Source of truth
 
-`alpininsight/.github-private` is the source of truth for executable reusable
-workflows. This public `.github` repository provides Contributor-facing
-templates only. For Python/Django quality, PR title validation, and release
-automation, copy the template into the consumer repo and keep it as a thin
-caller to `.github-private@main`.
+`alpininsight/.github-private` is the source of truth for internal workflow
+policy and private reusable workflows. This public `.github` repository provides
+Contributor-facing templates and public-compatible mirrors.
 
-Do not copy the private reusable workflow body into consumer repositories. If
-the process must change for all repositories, update `.github-private` first
-and then refresh these public templates.
+GitHub does not allow public repositories to call reusable workflows hosted in
+private repositories. Therefore public templates must not use
+`alpininsight/.github-private/...@main` directly. If the process must change for
+all repositories, update `.github-private` first and then mirror the compatible
+template or public reusable workflow here.
 
 Related planning document:
 - [Atomic Design Workflow Standardization Plan](./atomic-design-workflow-standardization-plan.md)
@@ -173,7 +173,7 @@ release-backlog-advisory:
 ## Python Django Quality Workflow
 
 **Template:** `.github/workflow-templates/feature-ci.yml`
-**Reusable workflow:** `alpininsight/.github-private/.github/workflows/reusable-ci.yml@main`
+**Reusable workflow:** `alpininsight/.github/.github/workflows/python-django-quality-reusable.yml@main`
 
 This is the organization standard quality workflow for repositories that ship:
 
@@ -185,8 +185,9 @@ This is the organization standard quality workflow for repositories that ship:
 
 The earlier `feature-ci` template standardized the basic checks, but each repo
 still had to carry a local copy and then drift over time. The current template
-is intentionally a thin caller into `.github-private`, so every repository gets
-central fixes on the next workflow run.
+is intentionally a thin caller into a public reusable workflow mirror. The
+internal process is led from `.github-private`, then mirrored here for public
+compatibility.
 
 It also makes the reason for each step explicit for developers:
 
@@ -209,11 +210,15 @@ container-build molecule so code quality and runtime packaging are both covered.
 
 | Input | Purpose | Default |
 |-------|---------|---------|
-| `python-version` | Python version installed via uv | `3.13` |
-| `coverage-package` | Top-level package for pytest coverage, empty disables coverage | empty |
-| `run-mypy` | Enable or disable mypy | `true` |
-| `run-docker-build` | Enable or disable Docker build + Trivy | `true` |
-| `generate-fernet-key` | Generate ephemeral Fernet env for crypto-contract repos | `false` |
+| `python_versions` | JSON array for the test matrix | `["3.12", "3.13", "3.14"]` |
+| `working_directory` | Project directory for commands | `.` |
+| `uv_sync_args` | Arguments appended to `uv sync` | `--frozen --dev` |
+| `run_pre_commit` | Enable or disable pre-commit | `true` |
+| `pre_commit_command` | Override the pre-commit command | `SKIP=no-commit-to-branch uvx pre-commit run --all-files` in the template |
+| `lint_command` | Override the lint command | `uv run ruff check .` |
+| `format_command` | Override the format check | `uv run ruff format --check .` |
+| `django_check_command` | Optional Django system check command | empty |
+| `test_command` | Override the test command | `uv run pytest` |
 
 ### Secrets
 
@@ -236,20 +241,20 @@ permissions:
 
 jobs:
   python-quality:
-    uses: alpininsight/.github-private/.github/workflows/reusable-ci.yml@main
+    uses: alpininsight/.github/.github/workflows/python-django-quality-reusable.yml@main
     with:
-      python-version: "3.13"
-      coverage-package: ""
-      run-mypy: true
-      run-docker-build: true
-    secrets: inherit
+      python_versions: '["3.12", "3.13", "3.14"]'
+      pre_commit_command: "SKIP=no-commit-to-branch uvx pre-commit run --all-files"
+    secrets:
+      github_read_token: ${{ secrets.INSIGHT_TOKEN_RO }}
 ```
 
 ### Design Notes
 
-- Prefer this template for new Python/Django repos instead of copying workflow bodies
+- Prefer this template for public Python/Django repos instead of copying workflow bodies
 - Keep the repo-local caller file small so required check names remain stable
-- If the repo does not ship a container, set `run-docker-build: false`
+- Private internal repos may replace the public reusable workflow call with the
+  equivalent `.github-private@main` reusable workflow when the repo is private
 
 ---
 
@@ -390,29 +395,29 @@ Runs the private organization quality workflow on pull requests and pushes to
 ## PR Title Lint
 
 **Template file:** `.github/workflow-templates/pr-title-lint.yml`
-**Reusable workflow:** `alpininsight/.github-private/.github/workflows/reusable-pr-title.yml@main`
+**Implementation:** local public-compatible template aligned with `.github-private`
 
 Validates that pull request titles follow the Conventional Commits specification.
 
 ### How It Works
 
 1. **Trigger:** PR opened, reopened, or title edited
-2. **Call:** Delegates to `.github-private/.github/workflows/reusable-pr-title.yml@main`
-3. **Validation:** Checks title matches `<type>: <description>` or `<type>(scope): <description>`
-4. **Types:** feat, fix, perf, refactor, docs, chore, ci, test, build, style
+2. **Validation:** Checks title matches `<type>: <description>` or `<type>(scope): <description>`
+3. **Types:** feat, fix, perf, refactor, docs, chore, ci, test, build, style
+4. **Breaking changes:** Allowed via `!` suffix (e.g. `feat!: redesign auth`)
 
 ### Key Design Decisions
 
 | Decision | Rationale |
 |----------|-----------|
 | `pull_request_target` (not `pull_request`) | Works with PRs from forks |
-| Central reusable validator | Keeps the allowed type policy consistent across repositories |
-| No local action configuration | Policy changes happen in `.github-private`, not in copied repo-local YAML |
+| Public-compatible local implementation | Works for public repositories that cannot call private reusable workflows |
+| Aligned with `.github-private` | Policy changes are made privately first, then mirrored here |
 
 ### Adapting for Your Repo
 
-The workflow is identical across all repos. Do not customize it locally unless
-the exception is documented in the repository README or SECURITY file.
+The workflow is identical across public repos. Private internal repos may use
+the `.github-private@main` reusable workflow directly.
 
 ---
 
