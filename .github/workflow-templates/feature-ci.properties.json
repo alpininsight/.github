@@ -1,6 +1,6 @@
 {
   "name": "Feature CI",
-  "description": "Quality checks (lint, format, test) for pull requests using uv, ruff, and pytest.",
+  "description": "Thin caller for the private organization quality workflow in .github-private.",
   "iconName": "octicon-check-circle",
   "categories": [
     "Continuous integration",

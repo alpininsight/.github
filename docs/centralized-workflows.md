@@ -6,6 +6,18 @@ consistently across repos with and without branch protection rules, and each
 section explains why a workflow exists so developers can decide when it is
 required versus optional.
 
+## Source of truth
+
+`alpininsight/.github-private` is the source of truth for executable reusable
+workflows. This public `.github` repository provides Contributor-facing
+templates only. For Python/Django quality, PR title validation, and release
+automation, copy the template into the consumer repo and keep it as a thin
+caller to `.github-private@main`.
+
+Do not copy the private reusable workflow body into consumer repositories. If
+the process must change for all repositories, update `.github-private` first
+and then refresh these public templates.
+
 Related planning document:
 - [Atomic Design Workflow Standardization Plan](./atomic-design-workflow-standardization-plan.md)
 - [Release Strategy Standard](./release-strategy-standard.md)
@@ -158,9 +170,10 @@ release-backlog-advisory:
 
 ---
 
-## Python Django Quality Reusable Workflow
+## Python Django Quality Workflow
 
-**Reusable workflow:** `alpininsight/.github/.github/workflows/python-django-quality-reusable.yml@main`
+**Template:** `.github/workflow-templates/feature-ci.yml`
+**Reusable workflow:** `alpininsight/.github-private/.github/workflows/reusable-ci.yml@main`
 
 This is the organization standard quality workflow for repositories that ship:
 
@@ -171,18 +184,16 @@ This is the organization standard quality workflow for repositories that ship:
 ### Why It Exists
 
 The earlier `feature-ci` template standardized the basic checks, but each repo
-still had to carry a local copy and then drift over time. This reusable
-workflow centralizes the actual quality contract so repos can keep only a thin
-caller workflow.
+still had to carry a local copy and then drift over time. The current template
+is intentionally a thin caller into `.github-private`, so every repository gets
+central fixes on the next workflow run.
 
 It also makes the reason for each step explicit for developers:
 
 - `uv sync`: reproduce the locked dependency graph
-- `pre-commit`: enforce repository-wide file hygiene
 - `ruff check` and `ruff format --check`: keep lint and formatting consistent
-- optional `manage.py check`: validate Django configuration before runtime
 - `pytest`: verify application behavior
-- quality gate: provide one stable required check for branch protection
+- optional mypy and container build/Trivy checks, controlled by template inputs
 
 For Django repos and notebook-style UI repos, pair this workflow with the
 container-build molecule so code quality and runtime packaging are both covered.
@@ -198,15 +209,11 @@ container-build molecule so code quality and runtime packaging are both covered.
 
 | Input | Purpose | Default |
 |-------|---------|---------|
-| `python_versions` | JSON array for the test matrix | `["3.12", "3.13", "3.14"]` |
-| `working_directory` | Project directory for commands | `.` |
-| `uv_sync_args` | Arguments appended to `uv sync` | `--frozen --dev` |
-| `run_pre_commit` | Enable or disable pre-commit | `true` |
-| `pre_commit_command` | Override the pre-commit command | `uvx pre-commit run --all-files` |
-| `lint_command` | Override the lint command | `uv run ruff check .` |
-| `format_command` | Override the format check command | `uv run ruff format --check .` |
-| `django_check_command` | Optional Django system check command | empty |
-| `test_command` | Override the test command | `uv run pytest` |
+| `python-version` | Python version installed via uv | `3.13` |
+| `coverage-package` | Top-level package for pytest coverage, empty disables coverage | empty |
+| `run-mypy` | Enable or disable mypy | `true` |
+| `run-docker-build` | Enable or disable Docker build + Trivy | `true` |
+| `generate-fernet-key` | Generate ephemeral Fernet env for crypto-contract repos | `false` |
 
 ### Secrets
 
@@ -229,21 +236,20 @@ permissions:
 
 jobs:
   python-quality:
-    uses: alpininsight/.github/.github/workflows/python-django-quality-reusable.yml@main
+    uses: alpininsight/.github-private/.github/workflows/reusable-ci.yml@main
     with:
-      python_versions: '["3.12", "3.13"]'
-      uv_sync_args: --all-groups
-      django_check_command: uv run python manage.py check --deploy --fail-level ERROR
-    secrets:
-      github_read_token: ${{ secrets.INSIGHT_TOKEN_RO }}
+      python-version: "3.13"
+      coverage-package: ""
+      run-mypy: true
+      run-docker-build: true
+    secrets: inherit
 ```
 
 ### Design Notes
 
-- Prefer this reusable workflow for new Python/Django repos instead of copying `feature-ci.yml`
+- Prefer this template for new Python/Django repos instead of copying workflow bodies
 - Keep the repo-local caller file small so required check names remain stable
-- If the repo has no Django layer, leave `django_check_command` empty
-- If the repo ships a containerized Django app or notebook UI, add the container-build workflow as a companion check
+- If the repo does not ship a container, set `run-docker-build: false`
 
 ---
 
@@ -348,66 +354,65 @@ jobs:
 ## Feature CI
 
 **Template file:** `.github/workflow-templates/feature-ci.yml`
+**Reusable workflow:** `alpininsight/.github-private/.github/workflows/reusable-ci.yml@main`
 
-Runs linting, formatting, and tests on every pull request targeting `main` or
-`develop`.
-
-This template remains useful as a starter or transitional local workflow, but
-the org standard for new Python/Django repos is the reusable workflow above.
+Runs the private organization quality workflow on pull requests and pushes to
+`develop` or `main`. The copied repo-local file should stay a thin caller.
 
 ### How It Works
 
 1. **Trigger:** Pull request opened/updated against `main` or `develop`
-2. **Matrix:** Tests across Python 3.12, 3.13, and 3.14
-3. **Checks:** pre-commit, ruff lint, ruff format, pytest
-4. **Quality Gate:** Summary job that reports pass/fail status
+2. **Call:** Delegates to `.github-private/.github/workflows/reusable-ci.yml@main`
+3. **Checks:** Ruff lint, Ruff format, optional mypy, pytest, optional Docker build + Trivy
+4. **Central fix propagation:** CI fixes land once in `.github-private@main` and apply to every consumer on the next run
 
 ### Key Design Decisions
 
 | Decision | Rationale |
 |----------|-----------|
-| `uv sync --frozen --dev` | Reproducible installs from lockfile |
-| `fail-fast: false` | All Python versions tested even if one fails |
+| Thin caller | Prevents each repo from drifting into a different CI implementation |
+| `secrets: inherit` | Keeps private dependency and release credentials available without template-specific secret plumbing |
 | `concurrency` with cancel-in-progress | Saves runner minutes on rapid pushes |
-| Separate quality-gate job | Single required check for branch protection |
-| `enable-cache: true` on uv | Faster installs on subsequent runs |
+| `.github-private@main` | Keeps the single-owner phase operational without per-repo SHA bump PRs |
 
 ### Adapting for Your Repo
 
 | Customization | How |
 |---------------|-----|
-| Reduce Python versions | Edit the `python-version` matrix |
-| Add Django checks | Add `uv run python manage.py check --deploy --fail-level ERROR` step |
-| Add mypy | Add `uv run mypy .` step (use `\|\| true` until types are added) |
-| Private dependencies | Add git auth step with `INSIGHT_TOKEN_RO` (see visa_statistiken) |
-| Container build | Add a separate job for Docker build verification |
+| Python version | Change `python-version` |
+| Coverage | Set `coverage-package` to the top-level Python package |
+| Missing type coverage | Set `run-mypy: false` temporarily and track the debt |
+| No container runtime | Set `run-docker-build: false` |
+| Crypto-contract repos | Set `generate-fernet-key: true` |
 
 ---
 
 ## PR Title Lint
 
 **Template file:** `.github/workflow-templates/pr-title-lint.yml`
+**Reusable workflow:** `alpininsight/.github-private/.github/workflows/reusable-pr-title.yml@main`
 
 Validates that pull request titles follow the Conventional Commits specification.
 
 ### How It Works
 
 1. **Trigger:** PR opened, reopened, or title edited
-2. **Validation:** Checks title matches `<type>: <description>` or `<type>(scope): <description>`
-3. **Types:** feat, fix, perf, refactor, docs, chore, ci, test, build, style
-4. **Breaking changes:** Allowed via `!` suffix (e.g. `feat!: redesign auth`)
+2. **Call:** Delegates to `.github-private/.github/workflows/reusable-pr-title.yml@main`
+3. **Validation:** Checks title matches `<type>: <description>` or `<type>(scope): <description>`
+4. **Types:** feat, fix, perf, refactor, docs, chore, ci, test, build, style
 
 ### Key Design Decisions
 
 | Decision | Rationale |
 |----------|-----------|
 | `pull_request_target` (not `pull_request`) | Works with PRs from forks |
-| `requireScope: false` | Scopes are optional but encouraged |
-| `GITHUB_TOKEN` sufficient | Read-only PR access, no anti-cascade issue |
+| Central reusable validator | Keeps the allowed type policy consistent across repositories |
+| No local action configuration | Policy changes happen in `.github-private`, not in copied repo-local YAML |
 
 ### Adapting for Your Repo
 
-The workflow is identical across all repos. No customization needed.
+The workflow is identical across all repos. Do not customize it locally unless
+the exception is documented in the repository README or SECURITY file.
 
 ---
 

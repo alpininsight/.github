@@ -12,9 +12,11 @@ This folder contains organization-wide GitHub defaults and templates.
     - `.github/PULL_REQUEST_TEMPLATE/`
 - Organisms
   - Automation standards:
-    - `.github/workflow-templates/` for new repository bootstrap
+    - `.github/workflow-templates/` for new repository bootstrap. These are
+      thin callers to `alpininsight/.github-private@main`; `.github-private`
+      owns the executable workflow logic.
       - Includes `monorepo-version-manifests.yml` for `projects/*` monorepos
-    - `.github/workflows/monorepo-version-manifests-reusable.yml` as reusable GitVersion manifest workflow
+    - `.github/workflows/monorepo-version-manifests-reusable.yml` as legacy public reusable GitVersion manifest workflow
     - `.github/workflows/sync-labels.yml` for org label sync
 
 ## Labels
