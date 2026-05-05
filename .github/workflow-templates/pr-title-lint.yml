@@ -1,15 +1,18 @@
 ---
 # =============================================================================
-# PR Title Lint - Enforce conventional commit format in PR titles
+# PR title - Conventional Commits gate
 # =============================================================================
-# Validates that PR titles follow the Conventional Commits specification.
-# Uses pull_request_target to work with PRs from forks.
+# Public-compatible Contributor template.
+#
+# Public repositories cannot call private reusable workflows. Keep this local
+# template aligned with the policy in .github-private/reusable-pr-title.yml.
 # =============================================================================
+
 name: PR Title Lint
 
 on:
   pull_request_target:
-    types: [opened, reopened, synchronize, edited]
+    types: [opened, edited, synchronize, reopened, ready_for_review]
 
 permissions:
   pull-requests: read

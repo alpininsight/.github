@@ -1,6 +1,6 @@
 {
   "name": "PR Title Lint",
-  "description": "Enforce Conventional Commits format in pull request titles.",
+  "description": "Public-compatible Conventional Commits PR title workflow.",
   "iconName": "octicon-typography",
   "categories": [
     "Automation",

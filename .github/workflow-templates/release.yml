@@ -1,24 +1,11 @@
 ---
 # =============================================================================
 # Release Workflow - Auto-versioning with GitVersion
-# Triggers on push to main branch, creates releases automatically
 # =============================================================================
-# Org release standard:
-#   - GitVersion is the required release strategy for new repos
-#   - release-please is migration legacy and should not be adopted in new repos
-# Reference repo:
-#   - insight-lima-k8s-capi
+# Public-compatible Contributor template.
 #
-# How it works:
-#   1. Merge PR to main
-#   2. GitVersion calculates semantic version from commit history
-#   3. If version tag doesn't exist, creates GitHub Release automatically
-#
-# Version bumping (via commit messages):
-#   - feat: → minor version bump (0.1.0 → 0.2.0)
-#   - fix:  → patch version bump (0.1.0 → 0.1.1)
-#   - BREAKING CHANGE: → major version bump (0.1.0 → 1.0.0)
-#
+# Public repositories cannot call private reusable workflows. Keep this template
+# aligned with the release process in .github-private/reusable-release.yml.
 # =============================================================================
 
 name: Release
@@ -49,7 +36,7 @@ jobs:
       - name: Set up GitVersion
         uses: gittools/actions/gitversion/setup@v3.1.2
         with:
-          versionSpec: '5.x'
+          versionSpec: "5.x"
           preferLatestVersion: true
 
       - name: Calculate version
@@ -69,7 +56,6 @@ jobs:
           echo "SemVer: ${{ steps.gitversion.outputs.SemVer }}"
           echo "FullSemVer: ${{ steps.gitversion.outputs.FullSemVer }}"
 
-          # Validate version format (X.Y.Z)
           if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "::error::Invalid version format: '$VERSION'. Expected X.Y.Z"
             exit 1

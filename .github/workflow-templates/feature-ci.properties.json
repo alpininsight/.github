@@ -1,6 +1,6 @@
 {
   "name": "Feature CI",
-  "description": "Quality checks (lint, format, test) for pull requests using uv, ruff, and pytest.",
+  "description": "Public-compatible caller for the organization Python/Django quality workflow.",
   "iconName": "octicon-check-circle",
   "categories": [
     "Continuous integration",
