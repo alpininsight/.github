@@ -3,7 +3,8 @@
 # Alpin Insight workflow template
 # Source:
 #   - public template: alpininsight/.github/.github/workflow-templates/release.yml
-#   - private backend: alpininsight/.github-private/.github/workflows/reusable-release.yml@ebb61f771e31cd42670875a5faaa58dfef64842a # v0.3.0
+# yamllint disable-line rule:line-length
+#   - private backend: alpininsight/.github-private/.github/workflows/reusable-release.yml@ebb61f771e31cd42670875a5faaa58dfef64842a  # v0.3.0
 # Purpose:
 #   - copies a thin GitVersion release caller into the target repository
 #   - keeps org release logic private and centrally maintained
@@ -27,4 +28,4 @@ jobs:
   release:
     permissions:
       contents: write
-    uses: alpininsight/.github-private/.github/workflows/reusable-release.yml@ebb61f771e31cd42670875a5faaa58dfef64842a # v0.3.0
+    uses: alpininsight/.github-private/.github/workflows/reusable-release.yml@ebb61f771e31cd42670875a5faaa58dfef64842a  # v0.3.0

@@ -3,7 +3,8 @@
 # Alpin Insight workflow template
 # Source:
 #   - public template: alpininsight/.github/.github/workflow-templates/monorepo-version-manifests.yml
-#   - private backend: alpininsight/.github-private/.github/workflows/monorepo-version-manifests-reusable.yml@ebb61f771e31cd42670875a5faaa58dfef64842a # v0.3.0
+# yamllint disable-line rule:line-length
+#   - private backend: alpininsight/.github-private/.github/workflows/monorepo-version-manifests-reusable.yml@ebb61f771e31cd42670875a5faaa58dfef64842a  # v0.3.0
 # Purpose:
 #   - copies a thin monorepo version-manifest caller into the target repository
 #   - keeps org GitVersion manifest logic private and centrally maintained
@@ -47,7 +48,8 @@ jobs:
   generate-manifests:
     permissions:
       contents: read
-    uses: alpininsight/.github-private/.github/workflows/monorepo-version-manifests-reusable.yml@ebb61f771e31cd42670875a5faaa58dfef64842a # v0.3.0
+    # yamllint disable-line rule:line-length
+    uses: alpininsight/.github-private/.github/workflows/monorepo-version-manifests-reusable.yml@ebb61f771e31cd42670875a5faaa58dfef64842a  # v0.3.0
     with:
       components: ${{ github.event.inputs.components || '' }}
       force_all: ${{ github.event.inputs.force_all == 'true' }}

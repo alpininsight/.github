@@ -3,7 +3,8 @@
 # Alpin Insight workflow template
 # Source:
 #   - public template: alpininsight/.github/.github/workflow-templates/container-build.yml
-#   - private backend: alpininsight/.github-private/.github/workflows/python-django-container-build-reusable.yml@ebb61f771e31cd42670875a5faaa58dfef64842a # v0.3.0
+# yamllint disable-line rule:line-length
+#   - private backend: alpininsight/.github-private/.github/workflows/python-django-container-build-reusable.yml@ebb61f771e31cd42670875a5faaa58dfef64842a  # v0.3.0
 # Purpose:
 #   - copies a thin caller for the Alpin Insight Python/Django container standard
 #   - keeps build, publish, and runtime-contract logic private and centrally maintained
@@ -30,7 +31,8 @@ jobs:
     permissions:
       contents: read
       packages: write
-    uses: alpininsight/.github-private/.github/workflows/python-django-container-build-reusable.yml@ebb61f771e31cd42670875a5faaa58dfef64842a # v0.3.0
+    # yamllint disable-line rule:line-length
+    uses: alpininsight/.github-private/.github/workflows/python-django-container-build-reusable.yml@ebb61f771e31cd42670875a5faaa58dfef64842a  # v0.3.0
     with:
       image_name: ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}
       public_base_url: https://replace-me.example.com
