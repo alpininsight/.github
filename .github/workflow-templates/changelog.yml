@@ -31,6 +31,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+    # yamllint disable-line rule:line-length
     uses: alpininsight/.github-private/.github/workflows/changelog-reusable.yml@ebb61f771e31cd42670875a5faaa58dfef64842a  # v0.3.0
     secrets:
       changelog_bot_token: ${{ secrets.CHANGELOG_BOT_TOKEN }}

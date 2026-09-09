@@ -25,4 +25,5 @@ jobs:
       pull-requests: write
       statuses: write
       checks: write
+    # yamllint disable-line rule:line-length
     uses: alpininsight/.github-private/.github/workflows/reusable-pr-title.yml@ebb61f771e31cd42670875a5faaa58dfef64842a  # v0.3.0
