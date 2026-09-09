@@ -1,8 +1,8 @@
 # Centralized Workflows
 
-Public `.github/workflow-templates/*` files are Alpine Insight starter
+Public `.github/workflow-templates/*` files are Alpin Insight starter
 templates. They are meant to be copied into organization repositories and keep
-their visible Alpine Insight source header after copy.
+their visible Alpin Insight source header after copy.
 
 Canonical workflow logic does not live in this public repository. It lives in
 `alpininsight/.github-private`, and the copied starter files call the private
@@ -10,7 +10,7 @@ reusable backends from `@main`.
 
 ## What this public repo provides
 
-- branded starter templates for new Alpine Insight repositories
+- branded starter templates for new Alpin Insight repositories
 - public-safe prerequisites and adoption notes
 - no active central workflow implementation
 - no internal runbooks, secret inventories, or operational automation
@@ -33,7 +33,7 @@ reusable backends from `@main`.
 
 When copying a starter template into a repository:
 
-1. Keep the Alpine Insight source header in the copied file.
+1. Keep the Alpin Insight source header in the copied file.
 2. Replace any placeholder values such as `public_base_url`.
 3. Ensure referenced GitHub Actions secrets are available to the repo.
 4. Prefer org-wide GitHub Actions secrets where appropriate.
@@ -41,7 +41,7 @@ When copying a starter template into a repository:
 
 Copied workflow files should stay thin callers. Do not paste the reusable
 workflow implementation into product repositories to make local fixes. If the
-same behavior should apply across Alpine Insight repositories, change the
+same behavior should apply across Alpin Insight repositories, change the
 matching reusable workflow in `alpininsight/.github-private` and let repository
 callers keep using the public starter template shape.
 

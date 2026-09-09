@@ -1,9 +1,9 @@
 ---
 # =============================================================================
-# Alpine Insight workflow template
+# Alpin Insight workflow template
 # Source:
 #   - public template: alpininsight/.github/.github/workflow-templates/changelog.yml
-#   - private backend: alpininsight/.github-private/.github/workflows/changelog-reusable.yml@main
+#   - private backend: alpininsight/.github-private/.github/workflows/changelog-reusable.yml@48537ce0c297ef27ab6da7da85ec6b8629059abb
 # Purpose:
 #   - copies a thin caller into the target repository
 #   - keeps org workflow logic private and centrally maintained
@@ -12,7 +12,7 @@
 #   - ensure CHANGELOG_BOT_TOKEN is available to the repo, preferably via an org-level GitHub Actions secret
 # =============================================================================
 
-name: Changelog (Alpine Insight)
+name: Changelog (Alpin Insight)
 
 on:
   push:
@@ -30,6 +30,6 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-    uses: alpininsight/.github-private/.github/workflows/changelog-reusable.yml@main
+    uses: alpininsight/.github-private/.github/workflows/changelog-reusable.yml@48537ce0c297ef27ab6da7da85ec6b8629059abb
     secrets:
       changelog_bot_token: ${{ secrets.CHANGELOG_BOT_TOKEN }}

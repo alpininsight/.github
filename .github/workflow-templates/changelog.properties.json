@@ -1,6 +1,6 @@
 {
-  "name": "Changelog (Alpine Insight)",
-  "description": "Alpine Insight starter that copies a thin caller to the private changelog backend.",
+  "name": "Changelog (Alpin Insight)",
+  "description": "Alpin Insight starter that copies a thin caller to the private changelog backend.",
   "iconName": "octicon-log",
   "categories": [
     "Continuous integration",

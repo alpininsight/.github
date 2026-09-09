@@ -1,6 +1,6 @@
 {
-  "name": "Monorepo Version Manifests (Alpine Insight)",
-  "description": "Alpine Insight starter that copies a thin caller to the private monorepo GitVersion manifest backend.",
+  "name": "Monorepo Version Manifests (Alpin Insight)",
+  "description": "Alpin Insight starter that copies a thin caller to the private monorepo GitVersion manifest backend.",
   "iconName": "octicon-tag",
   "categories": [
     "Continuous integration",

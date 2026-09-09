@@ -1,18 +1,18 @@
 ---
 # =============================================================================
-# Alpine Insight workflow template
+# Alpin Insight workflow template
 # Source:
 #   - public template: alpininsight/.github/.github/workflow-templates/gitversion.yml
-#   - private backend: alpininsight/.github-private/.github/workflows/gitversion-reusable.yml@main
+#   - private backend: alpininsight/.github-private/.github/workflows/gitversion-reusable.yml@48537ce0c297ef27ab6da7da85ec6b8629059abb
 # Purpose:
 #   - copies a thin GitVersion caller into the target repository
 #   - keeps org versioning logic private and centrally maintained
 # When copied:
 #   - keep this header so the source remains visible in downstream repos
-#   - pair this workflow with the Alpine Insight release template
+#   - pair this workflow with the Alpin Insight release template
 # =============================================================================
 
-name: GitVersion (Alpine Insight)
+name: GitVersion (Alpin Insight)
 
 on:
   push:
@@ -28,6 +28,6 @@ jobs:
   calculate-version:
     permissions:
       contents: read
-    uses: alpininsight/.github-private/.github/workflows/gitversion-reusable.yml@main
+    uses: alpininsight/.github-private/.github/workflows/gitversion-reusable.yml@48537ce0c297ef27ab6da7da85ec6b8629059abb
     with:
       config_file_path: GitVersion.yml

@@ -1,9 +1,9 @@
 ---
 # =============================================================================
-# Alpine Insight workflow template
+# Alpin Insight workflow template
 # Source:
 #   - public template: alpininsight/.github/.github/workflow-templates/monorepo-version-manifests.yml
-#   - private backend: alpininsight/.github-private/.github/workflows/monorepo-version-manifests-reusable.yml@main
+#   - private backend: alpininsight/.github-private/.github/workflows/monorepo-version-manifests-reusable.yml@48537ce0c297ef27ab6da7da85ec6b8629059abb
 # Purpose:
 #   - copies a thin monorepo version-manifest caller into the target repository
 #   - keeps org GitVersion manifest logic private and centrally maintained
@@ -12,7 +12,7 @@
 #   - this template assumes a `projects/*` component layout
 # =============================================================================
 
-name: Monorepo Version Manifests (Alpine Insight)
+name: Monorepo Version Manifests (Alpin Insight)
 
 on:
   push:
@@ -47,7 +47,7 @@ jobs:
   generate-manifests:
     permissions:
       contents: read
-    uses: alpininsight/.github-private/.github/workflows/monorepo-version-manifests-reusable.yml@main
+    uses: alpininsight/.github-private/.github/workflows/monorepo-version-manifests-reusable.yml@48537ce0c297ef27ab6da7da85ec6b8629059abb
     with:
       components: ${{ github.event.inputs.components || '' }}
       force_all: ${{ github.event.inputs.force_all == 'true' }}

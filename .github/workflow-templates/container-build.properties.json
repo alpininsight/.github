@@ -1,6 +1,6 @@
 {
-  "name": "Container Build (Alpine Insight)",
-  "description": "Alpine Insight starter that copies a thin caller to the private Python/Django container backend.",
+  "name": "Container Build (Alpin Insight)",
+  "description": "Alpin Insight starter that copies a thin caller to the private Python/Django container backend.",
   "iconName": "octicon-container",
   "categories": [
     "Continuous integration",
