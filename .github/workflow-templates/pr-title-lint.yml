@@ -3,7 +3,7 @@
 # Alpin Insight workflow template
 # Source:
 #   - public template: alpininsight/.github/.github/workflow-templates/pr-title-lint.yml
-#   - private backend: alpininsight/.github-private/.github/workflows/reusable-pr-title.yml@main
+#   - private backend: alpininsight/.github-private/.github/workflows/reusable-pr-title.yml@ebb61f771e31cd42670875a5faaa58dfef64842a # v0.3.0
 # Purpose:
 #   - copies a thin PR-title caller into the target repository
 #   - keeps org title validation logic private and centrally maintained
@@ -24,4 +24,4 @@ jobs:
       pull-requests: write
       statuses: write
       checks: write
-    uses: alpininsight/.github-private/.github/workflows/reusable-pr-title.yml@main
+    uses: alpininsight/.github-private/.github/workflows/reusable-pr-title.yml@ebb61f771e31cd42670875a5faaa58dfef64842a # v0.3.0

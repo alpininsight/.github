@@ -1,0 +1,18 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "description": [
+    "This repository publishes the org's workflow templates. Every template pins the private reusable workflows to a commit SHA with the release tag as a comment, because zizmor's unpinned-uses audit rejects a bare @main and because a bare SHA without that comment is invisible to Renovate — it cannot tell which tag the pin follows, so the reference would freeze forever.",
+    "Renovate's github-actions manager already covers .github/workflow-templates by default; its file pattern names workflow-templates explicitly. No manager configuration is needed here, only the branch and commit conventions the org's repository policy enforces.",
+    "The pins were set by hand once, to v0.3.0 of .github-private on 2026-09-09. From here Renovate opens the update PR whenever that repository publishes a new tag."
+  ],
+  "timezone": "Europe/Berlin",
+  "branchPrefix": "chore/renovate-",
+  "semanticCommits": "enabled",
+  "semanticCommitType": "chore",
+  "semanticCommitScope": "deps",
+  "dependencyDashboard": true,
+  "rebaseWhen": "behind-base-branch",
+  "prConcurrentLimit": 3,
+  "prHourlyLimit": 2
+}

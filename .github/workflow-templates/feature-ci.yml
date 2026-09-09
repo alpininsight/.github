@@ -4,8 +4,8 @@
 # Source:
 #   - public template: alpininsight/.github/.github/workflow-templates/feature-ci.yml
 #   - private backends:
-#     - alpininsight/.github-private/.github/workflows/repository-policy-reusable.yml@main
-#     - alpininsight/.github-private/.github/workflows/python-django-quality-reusable.yml@main
+#     - alpininsight/.github-private/.github/workflows/repository-policy-reusable.yml@ebb61f771e31cd42670875a5faaa58dfef64842a # v0.3.0
+#     - alpininsight/.github-private/.github/workflows/python-django-quality-reusable.yml@ebb61f771e31cd42670875a5faaa58dfef64842a # v0.3.0
 # Purpose:
 #   - copies the standard Alpin Insight CI caller into the target repository
 #   - keeps policy and quality logic private and centrally maintained
@@ -33,12 +33,12 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
-    uses: alpininsight/.github-private/.github/workflows/repository-policy-reusable.yml@main
+    uses: alpininsight/.github-private/.github/workflows/repository-policy-reusable.yml@ebb61f771e31cd42670875a5faaa58dfef64842a # v0.3.0
 
   quality:
     permissions:
       contents: read
-    uses: alpininsight/.github-private/.github/workflows/python-django-quality-reusable.yml@main
+    uses: alpininsight/.github-private/.github/workflows/python-django-quality-reusable.yml@ebb61f771e31cd42670875a5faaa58dfef64842a # v0.3.0
     with:
       python_versions: '["3.13"]'
     secrets:
