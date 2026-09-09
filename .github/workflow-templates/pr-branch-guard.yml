@@ -1,6 +1,6 @@
 ---
 # =============================================================================
-# Alpine Insight workflow template
+# Alpin Insight workflow template
 # Source:
 #   - public template: alpininsight/.github/.github/workflow-templates/pr-branch-guard.yml
 #   - private backend: alpininsight/.github-private/.github/workflows/repository-policy-reusable.yml@main
@@ -12,7 +12,7 @@
 #   - this template validates routing only, not PR titles or commit headlines
 # =============================================================================
 
-name: PR Branch Guard (Alpine Insight)
+name: PR Branch Guard (Alpin Insight)
 
 on:
   pull_request:

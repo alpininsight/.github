@@ -1,6 +1,6 @@
 {
-  "name": "Standard CI (Alpine Insight)",
-  "description": "Alpine Insight starter that copies thin repository-policy and quality callers to the private CI backends.",
+  "name": "Standard CI (Alpin Insight)",
+  "description": "Alpin Insight starter that copies thin repository-policy and quality callers to the private CI backends.",
   "iconName": "octicon-check-circle",
   "categories": [
     "Continuous integration",

@@ -1,20 +1,20 @@
 ---
 # =============================================================================
-# Alpine Insight workflow template
+# Alpin Insight workflow template
 # Source:
 #   - public template: alpininsight/.github/.github/workflow-templates/feature-ci.yml
 #   - private backends:
 #     - alpininsight/.github-private/.github/workflows/repository-policy-reusable.yml@main
 #     - alpininsight/.github-private/.github/workflows/python-django-quality-reusable.yml@main
 # Purpose:
-#   - copies the standard Alpine Insight CI caller into the target repository
+#   - copies the standard Alpin Insight CI caller into the target repository
 #   - keeps policy and quality logic private and centrally maintained
 # When copied:
 #   - keep this header so the source remains visible in downstream repos
 #   - adjust python_versions and optional commands for your repository as needed
 # =============================================================================
 
-name: Standard CI (Alpine Insight)
+name: Standard CI (Alpin Insight)
 
 on:
   pull_request:

@@ -1,6 +1,6 @@
 {
-  "name": "GitVersion (Alpine Insight)",
-  "description": "Alpine Insight starter that copies a thin caller to the private GitVersion backend.",
+  "name": "GitVersion (Alpin Insight)",
+  "description": "Alpin Insight starter that copies a thin caller to the private GitVersion backend.",
   "iconName": "octicon-tag",
   "categories": [
     "Continuous integration",

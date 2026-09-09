@@ -1,6 +1,6 @@
 ---
 # =============================================================================
-# Alpine Insight workflow template
+# Alpin Insight workflow template
 # Source:
 #   - public template: alpininsight/.github/.github/workflow-templates/scheduled-pre-commit-update.yml
 #   - private backend: alpininsight/.github-private/.github/workflows/scheduled-pre-commit-update-reusable.yml@main
@@ -12,7 +12,7 @@
 #   - ensure INSIGHT_TOKEN is available to the repo, preferably via an org-level GitHub Actions secret
 # =============================================================================
 
-name: Scheduled pre-commit update (Alpine Insight)
+name: Scheduled pre-commit update (Alpin Insight)
 
 on:
   workflow_dispatch:

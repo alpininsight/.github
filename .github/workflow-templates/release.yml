@@ -1,6 +1,6 @@
 ---
 # =============================================================================
-# Alpine Insight workflow template
+# Alpin Insight workflow template
 # Source:
 #   - public template: alpininsight/.github/.github/workflow-templates/release.yml
 #   - private backend: alpininsight/.github-private/.github/workflows/reusable-release.yml@main
@@ -9,10 +9,10 @@
 #   - keeps org release logic private and centrally maintained
 # When copied:
 #   - keep this header so the source remains visible in downstream repos
-#   - pair this workflow with GitVersion.yml and the Alpine Insight GitVersion template
+#   - pair this workflow with GitVersion.yml and the Alpin Insight GitVersion template
 # =============================================================================
 
-name: Release (Alpine Insight)
+name: Release (Alpin Insight)
 
 on:
   push:

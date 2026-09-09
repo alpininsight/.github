@@ -1,6 +1,6 @@
 ---
 # =============================================================================
-# Alpine Insight workflow template
+# Alpin Insight workflow template
 # Source:
 #   - public template: alpininsight/.github/.github/workflow-templates/changelog.yml
 #   - private backend: alpininsight/.github-private/.github/workflows/changelog-reusable.yml@main
@@ -12,7 +12,7 @@
 #   - ensure CHANGELOG_BOT_TOKEN is available to the repo, preferably via an org-level GitHub Actions secret
 # =============================================================================
 
-name: Changelog (Alpine Insight)
+name: Changelog (Alpin Insight)
 
 on:
   push:

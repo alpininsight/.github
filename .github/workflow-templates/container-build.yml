@@ -1,18 +1,18 @@
 ---
 # =============================================================================
-# Alpine Insight workflow template
+# Alpin Insight workflow template
 # Source:
 #   - public template: alpininsight/.github/.github/workflow-templates/container-build.yml
 #   - private backend: alpininsight/.github-private/.github/workflows/python-django-container-build-reusable.yml@main
 # Purpose:
-#   - copies a thin caller for the Alpine Insight Python/Django container standard
+#   - copies a thin caller for the Alpin Insight Python/Django container standard
 #   - keeps build, publish, and runtime-contract logic private and centrally maintained
 # When copied:
 #   - replace PUBLIC_BASE_URL with the canonical service URL before enabling runtime smoke
 #   - keep the caller thin; extend the private backend instead of forking the logic
 # =============================================================================
 
-name: Container Build (Alpine Insight)
+name: Container Build (Alpin Insight)
 
 on:
   pull_request:

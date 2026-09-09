@@ -1,6 +1,6 @@
 ---
 # =============================================================================
-# Alpine Insight workflow template
+# Alpin Insight workflow template
 # Source:
 #   - public template: alpininsight/.github/.github/workflow-templates/monorepo-version-manifests.yml
 #   - private backend: alpininsight/.github-private/.github/workflows/monorepo-version-manifests-reusable.yml@main
@@ -12,7 +12,7 @@
 #   - this template assumes a `projects/*` component layout
 # =============================================================================
 
-name: Monorepo Version Manifests (Alpine Insight)
+name: Monorepo Version Manifests (Alpin Insight)
 
 on:
   push:
