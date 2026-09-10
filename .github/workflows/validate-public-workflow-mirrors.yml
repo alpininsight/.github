@@ -1,0 +1,37 @@
+---
+name: Validate Public Workflow Mirrors
+
+on:
+  pull_request:
+    branches: [develop, main]
+    paths:
+      - ".github/workflows/**"
+      - ".github/workflow-templates/release.yml"
+      - "scripts/test-static-assets-cdn-contract.sh"
+      - "docs/centralized-workflows.md"
+      - "README.md"
+  push:
+    branches: [develop, main]
+    paths:
+      - ".github/workflows/**"
+      - ".github/workflow-templates/release.yml"
+      - "scripts/test-static-assets-cdn-contract.sh"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Public workflow mirror contract
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+        with:
+          persist-credentials: false
+
+      - name: Validate workflow syntax
+        uses: rhysd/actionlint@914e7df21a07ef503a81201c76d2b11c789d3fca  # v1.7.12
+
+      - name: Validate static asset publication contract
+        run: bash scripts/test-static-assets-cdn-contract.sh

@@ -26,6 +26,7 @@ Related planning document:
 
 - [Changelog Workflow](#changelog-workflow)
 - [Release Strategy Standard](#release-strategy-standard)
+- [Public Release And Static Asset Mirrors](#public-release-and-static-asset-mirrors)
 - [Release Backlog Advisory](#release-backlog-advisory)
 - [Python Django Quality Reusable Workflow](#python-django-quality-reusable-workflow)
 - [Python Django Container Build Reusable Workflow](#python-django-container-build-reusable-workflow)
@@ -52,6 +53,43 @@ the GitVersion templates from `.github` rather than introducing
 temporary exceptions and should be moved onto the GitVersion model.
 
 See the full policy in [Release Strategy Standard](./release-strategy-standard.md).
+
+---
+
+## Public Release And Static Asset Mirrors
+
+Public repositories cannot call reusable workflows in `.github-private`. The
+following public mirrors expose only generic execution logic and input names:
+
+| Workflow | Contract |
+|----------|----------|
+| `.github/workflows/reusable-release.yml` | Calculate a GitVersion release, create the tag and release, and expose the resolved version to dependent jobs. |
+| `.github/workflows/static-assets-reusable.yml` | Build static files, verify the immutable R2 inventory and public edge response, then move and verify mutable aliases. |
+
+The private workflow remains the process source. Compatible changes are reviewed
+there first and mirrored here for public callers. A public caller uses:
+
+```yaml
+uses: alpininsight/.github/.github/workflows/static-assets-reusable.yml@main
+```
+
+The caller owns all runtime configuration and credentials. The public mirror
+contains no credential values, Cloudflare account identifiers, private endpoints
+or OpenBao paths. Secret names are part of the API so callers can map their own
+repository secrets without exposing values.
+
+CDN publication is maintainer-only. Public pull requests must run build and
+package checks without CDN credentials; R2 publication is limited to protected
+branch pushes or explicit maintainer dispatches. Immutable assets are publicly
+verified before a mutable alias such as `latest` can move. The public edge check
+uses one deterministic sample per file extension and reports only response
+metadata needed for diagnosis.
+
+Validate the mirror with:
+
+```bash
+bash scripts/test-static-assets-cdn-contract.sh
+```
 
 ---
 

@@ -1,0 +1,191 @@
+---
+# =============================================================================
+# Reusable: GitVersion-based release
+# =============================================================================
+# Organization release standard:
+#   - GitVersion is the only supported release/versioning engine
+#   - python-semantic-release is not part of the standard path
+#   - callers consume this workflow via @main after changes are promoted
+#
+# Backward-compatibility notes:
+#   - `python-version`, `uv-version`, and `kustomize-image-name` remain as
+#     accepted inputs so older callers do not fail schema validation.
+#   - The legacy kustomize image pin behavior is intentionally retired from
+#     the standard path; callers passing `kustomize-image-name` receive an
+#     explicit warning instead of a silent no-op.
+# =============================================================================
+
+name: Reusable Release (GitVersion)
+
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        description: "Compatibility-only input retained for older callers."
+        required: false
+        type: string
+        default: "3.13"
+      uv-version:
+        description: "Compatibility-only input retained for older callers."
+        required: false
+        type: string
+        default: "0.9"
+      gitversion_config_file:
+        description: "Path to the caller repository GitVersion configuration."
+        required: false
+        type: string
+        default: "GitVersion.yml"
+      gitversion_version_spec:
+        description: "GitVersion version spec."
+        required: false
+        type: string
+        default: "6.8.x"
+      tag_prefix:
+        description: "Prefix applied to the release tag name."
+        required: false
+        type: string
+        default: "v"
+      release_name_prefix:
+        description: "Prefix applied to the GitHub Release title."
+        required: false
+        type: string
+        default: "v"
+      generate_release_notes:
+        description: "Use GitHub generated release notes."
+        required: false
+        type: boolean
+        default: true
+      prerelease:
+        description: "Mark the GitHub Release as a prerelease."
+        required: false
+        type: boolean
+        default: false
+      kustomize-image-name:
+        description: "Deprecated compatibility input. Accepted but ignored."
+        required: false
+        type: string
+        default: ""
+    outputs:
+      version:
+        description: "Resolved GitVersion MajorMinorPatch."
+        value: ${{ jobs.release.outputs.version }}
+      tag:
+        description: "Resolved release tag."
+        value: ${{ jobs.release.outputs.tag }}
+      released:
+        description: "Whether this run created a new GitHub Release."
+        value: ${{ jobs.release.outputs.released }}
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      released: ${{ steps.release_state.outputs.released }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68  # v6
+        env:
+          DOTNET_INSTALL_DIR: ${{ runner.temp }}/dotnet
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Set up GitVersion
+        uses: gittools/actions/gitversion/setup@7417b1089e2c7de93510f1901d656ddf60bb024f  # v4.7.0
+        with:
+          versionSpec: ${{ inputs.gitversion_version_spec }}
+          preferLatestVersion: true
+
+      - name: Calculate version
+        id: gitversion
+        uses: gittools/actions/gitversion/execute@7417b1089e2c7de93510f1901d656ddf60bb024f  # v4.7.0
+        with:
+          configFilePath: ${{ inputs.gitversion_config_file }}
+          overrideConfig: |
+            update-build-number=false
+
+      - name: Validate version metadata
+        id: version
+        env:
+          VERSION: ${{ steps.gitversion.outputs.MajorMinorPatch }}
+          TAG_PREFIX: ${{ inputs.tag_prefix }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Invalid GitVersion MajorMinorPatch '$VERSION'"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG_PREFIX}${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Check if GitHub Release already exists
+        id: releasecheck
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create GitHub Release
+        if: steps.releasecheck.outputs.exists != 'true'
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64  # v3.0.3
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: ${{ inputs.release_name_prefix }}${{ steps.version.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          generate_release_notes: ${{ inputs.generate_release_notes }}
+          prerelease: ${{ inputs.prerelease }}
+          draft: false
+
+      - name: Capture release state
+        id: release_state
+        env:
+          EXISTS: ${{ steps.releasecheck.outputs.exists }}
+        run: |
+          if [[ "$EXISTS" == "true" ]]; then
+            echo "released=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "released=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Warn about retired compatibility input
+        if: ${{ inputs.kustomize-image-name != '' }}
+        env:
+          IMAGE_NAME: ${{ inputs.kustomize-image-name }}
+        run: |
+          echo "::warning::The compatibility input 'kustomize-image-name' is no longer part of the GitVersion release standard and is ignored (received '$IMAGE_NAME')."
+
+      - name: Release summary
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          TAG: ${{ steps.version.outputs.tag }}
+          RELEASED: ${{ steps.release_state.outputs.released }}
+          SEMVER: ${{ steps.gitversion.outputs.SemVer }}
+          FULL_SEMVER: ${{ steps.gitversion.outputs.FullSemVer }}
+        run: |
+          {
+            echo "## GitVersion Release"
+            echo ""
+            echo "| Attribute | Value |"
+            echo "|-----------|-------|"
+            echo "| Version | $VERSION |"
+            echo "| Tag | $TAG |"
+            echo "| SemVer | $SEMVER |"
+            echo "| FullSemVer | $FULL_SEMVER |"
+            echo "| Created release | $RELEASED |"
+          } >> "$GITHUB_STEP_SUMMARY"

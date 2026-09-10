@@ -43,7 +43,14 @@ documentation, troubleshooting, and adoption checklist.
 | `monorepo-version-manifests.yml` | Generate per-component version manifest artifacts for `projects/*` monorepos | `GitVersion.yml`, `projects/<component>/` layout |
 | `pr-title-lint.yml` | Public-compatible PR title workflow | -- |
 | `pr-branch-guard.yml` | Enforce branch naming conventions on PRs | -- |
-| `release.yml` | Public-compatible GitVersion release workflow | `GitVersion.yml` |
+| `release.yml` | Thin caller for the public GitVersion release mirror | `GitVersion.yml` |
+
+Public reusable workflows for maintainers:
+
+| Workflow | Purpose |
+|----------|---------|
+| `reusable-release.yml` | Create deterministic GitVersion releases for public repositories. |
+| `static-assets-reusable.yml` | Build and transactionally publish versioned or aliased static assets to a caller-owned CDN. |
 
 ### Adoption checklist (per repo)
 
@@ -51,6 +58,7 @@ documentation, troubleshooting, and adoption checklist.
 - [ ] Copy `feature-ci.yml`, `pr-title-lint.yml`, and `release.yml` to `.github/workflows/`
 - [ ] For private repos, prefer `.github-private@main` callers when available
 - [ ] For public repos, keep public-compatible templates or public reusable workflow mirrors
+- [ ] Keep CDN credentials in caller repository secrets; never place values in this public mirror
 - [ ] Ensure `cliff.toml` exists in repo root
 - [ ] Ensure `GitVersion.yml` exists with `prevent-increment-of-merged-branch-version: false` on `main`
 - [ ] Ensure `GitVersion.yml` uses `develop` with `tag: alpha` and `increment: Patch` to stay aligned with `main`

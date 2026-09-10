@@ -1,0 +1,1076 @@
+---
+# yamllint disable rule:line-length
+name: Static Assets (reusable)
+
+on:  # yamllint disable-line rule:truthy
+  workflow_call:
+    inputs:
+      node_version:
+        description: Node.js version used for asset tooling.
+        required: false
+        type: string
+        default: "22"
+      setup_python:
+        description: Set up Python before running asset commands.
+        required: false
+        type: boolean
+        default: false
+      python_version:
+        description: Python version used when setup_python is true.
+        required: false
+        type: string
+        default: "3.14"
+      setup_uv:
+        description: Set up uv before running asset commands.
+        required: false
+        type: boolean
+        default: false
+      working_directory:
+        description: Directory that contains package.json and asset scripts.
+        required: false
+        type: string
+        default: "."
+      checkout_ref:
+        description: Optional Git ref or immutable commit to build. Leave empty to use the caller event ref.
+        required: false
+        type: string
+        default: ""
+      install_command:
+        description: Command used to install JavaScript tooling. Leave empty to skip.
+        required: false
+        type: string
+        default: npm ci
+      mode:
+        description: "'check' verifies generated assets; 'build' regenerates them."
+        required: false
+        type: string
+        default: check
+      check_command:
+        description: Command that verifies generated assets are current.
+        required: false
+        type: string
+        default: npm run check:js-build
+      build_command:
+        description: Command that regenerates distributable assets.
+        required: false
+        type: string
+        default: npm run build:js
+      auto_commit_generated_assets:
+        description: Automatically rebuild and commit generated assets for trusted same-repository PRs in check mode.
+        required: false
+        type: boolean
+        default: false
+      auto_commit_paths:
+        description: Comma- or newline-separated paths to stage for auto-commit. Defaults to the working directory.
+        required: false
+        type: string
+        default: ""
+      auto_commit_message:
+        description: Commit message used when auto-committing generated assets.
+        required: false
+        type: string
+        default: "fix(static): update generated assets"
+      upload_cdn:
+        description: Upload built assets to cdn.alpininsight.ai via Cloudflare R2.
+        required: false
+        type: boolean
+        default: false
+      asset_directory:
+        description: Directory containing files to upload when upload_cdn is true.
+        required: false
+        type: string
+        default: ""
+      cdn_prefix:
+        description: CDN path prefix, for example runtime or insight-ui-user.
+        required: false
+        type: string
+        default: ""
+      cdn_version:
+        description: Version to upload. Defaults to the release tag without leading v.
+        required: false
+        type: string
+        default: ""
+      cdn_bucket:
+        description: Cloudflare R2 bucket name behind cdn.alpininsight.ai.
+        required: false
+        type: string
+        default: alpininsight-cdn
+      cdn_base_url:
+        description: Public CDN base URL used for post-upload verification.
+        required: false
+        type: string
+        default: https://cdn.alpininsight.ai
+      cdn_cors_verify_origin:
+        description: Browser Origin header used for public CDN CORS verification.
+        required: false
+        type: string
+        default: https://demo.alpininsight.ai
+      cdn_upload_immutable:
+        description: Upload the immutable vX.Y.Z path. Disable for branch alias-only uploads.
+        required: false
+        type: boolean
+        default: true
+      cdn_aliases:
+        description: Comma- or newline-separated mutable aliases to sync, for example develop or main.
+        required: false
+        type: string
+        default: ""
+      cdn_mutable_cache_control:
+        description: Cache-Control header used for mutable CDN aliases such as develop, main, and latest.
+        required: false
+        type: string
+        default: public, max-age=14400
+      cdn_mutable_cache_max_age:
+        description: Expected max-age value exposed by the public CDN for mutable aliases.
+        required: false
+        type: string
+        default: "14400"
+      cdn_asset_globs:
+        description: Comma-separated file globs to publish to the CDN (immutable, mutable, inventory, verify). Defaults to js/css for backward compatibility; callers hosting media pass e.g. "*.js,*.css,*.svg,*.png,*.ico,*.woff2".
+        required: false
+        type: string
+        default: "*.js,*.css"
+      update_latest:
+        description: >-
+          Whether to move the floating ``<prefix>/latest/`` alias to this
+          upload. Per the CDN asset contract, release publishes update
+          ``latest/`` (default true) while manual custom-version dispatches
+          (preview channel / backfills) must set this false so an older
+          version does not clobber the latest alias.
+        required: false
+        type: boolean
+        default: true
+    secrets:
+      github_read_token:
+        description: Optional read-only token for private GitHub build dependencies.
+        required: false
+      r2_access_key_id:
+        description: Cloudflare R2 access key id.
+        required: false
+      r2_secret_access_key:
+        description: Cloudflare R2 secret access key.
+        required: false
+      r2_endpoint:
+        description: Cloudflare R2 S3-compatible endpoint.
+        required: false
+
+jobs:
+  assets:
+    name: Static Assets
+    runs-on: [self-hosted, notebook, docker-desktop]
+    defaults:
+      run:
+        shell: bash
+        working-directory: ${{ inputs.working_directory }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.checkout_ref || (inputs.auto_commit_generated_assets && inputs.mode == 'check' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref) || github.ref }}
+          persist-credentials: ${{ inputs.auto_commit_generated_assets && inputs.mode == 'check' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
+
+      - name: Set up Python
+        if: ${{ inputs.setup_python }}
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7
+        with:
+          python-version: ${{ inputs.python_version }}
+
+      - name: Set up uv
+        if: ${{ inputs.setup_uv }}
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d  # v10.0.1
+        with:
+          enable-cache: auto
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: ${{ inputs.node_version }}
+          cache: npm
+          cache-dependency-path: ${{ inputs.working_directory }}/package-lock.json
+
+      - name: Prepare private GitHub dependency access
+        env:
+          GITHUB_READ_TOKEN: ${{ secrets.github_read_token }}
+        run: &prepare_private_git_auth |
+          set +x
+          set -euo pipefail
+          if [[ -z "${GITHUB_READ_TOKEN:-}" ]]; then
+            exit 0
+          fi
+          auth="$(printf 'x-access-token:%s' "$GITHUB_READ_TOKEN" | base64 | tr -d '\n')"
+          printf '::add-mask::%s\n' "$auth"
+          printf 'STATIC_ASSETS_GITHUB_AUTH_HEADER=AUTHORIZATION: basic %s\n' "$auth" >> "$GITHUB_ENV"
+
+      - name: Install JavaScript tooling
+        if: ${{ inputs.install_command != '' }}
+        env:
+          STATIC_ASSETS_COMMAND: ${{ inputs.install_command }}
+        run: &run_static_asset_command |
+          set -euo pipefail
+          if [[ -n "${STATIC_ASSETS_GITHUB_AUTH_HEADER:-}" ]]; then
+            set +x
+            # Only asset commands inherit auth; checkout/auto-commit keep their credentials.
+            # Ignore stale shared-HOME rewrites without changing any config file.
+            export GIT_CONFIG_GLOBAL=/dev/null
+            config_count="${GIT_CONFIG_COUNT:-0}"
+            if [[ ! "$config_count" =~ ^[0-9]+$ ]]; then
+              echo "::error::Invalid inherited GIT_CONFIG_COUNT"
+              exit 1
+            fi
+            config_count=$((10#$config_count))
+            add_git_config() {
+              export "GIT_CONFIG_KEY_${config_count}=$1"
+              export "GIT_CONFIG_VALUE_${config_count}=$2"
+              config_count=$((config_count + 1))
+            }
+            add_git_config url.https://github.com/.insteadOf ssh://git@github.com/
+            add_git_config url.https://github.com/.insteadOf git@github.com:
+            add_git_config http.https://github.com/.extraheader ""
+            add_git_config http.https://github.com/.extraheader "$STATIC_ASSETS_GITHUB_AUTH_HEADER"
+            add_git_config credential.https://github.com/.helper ""
+            export GIT_CONFIG_COUNT="$config_count"
+          fi
+          bash -euo pipefail -c "$STATIC_ASSETS_COMMAND"
+
+      - name: Verify generated assets
+        if: ${{ inputs.mode == 'check' && (inputs.auto_commit_generated_assets != true || github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository) }}
+        env:
+          STATIC_ASSETS_COMMAND: ${{ inputs.check_command }}
+        run: *run_static_asset_command
+
+      - name: Build generated assets for trusted PR auto-fix
+        if: ${{ inputs.mode == 'check' && inputs.auto_commit_generated_assets && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
+        env:
+          STATIC_ASSETS_COMMAND: ${{ inputs.build_command }}
+        run: *run_static_asset_command
+
+      - name: Commit generated assets for trusted PR
+        if: ${{ inputs.mode == 'check' && inputs.auto_commit_generated_assets && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
+        env:
+          AUTO_COMMIT_MESSAGE: ${{ inputs.auto_commit_message }}
+          AUTO_COMMIT_PATHS: ${{ inputs.auto_commit_paths }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          WORKING_DIRECTORY: ${{ inputs.working_directory }}
+        run: |
+          set -euo pipefail
+
+          git -C "$GITHUB_WORKSPACE" status --short
+          if git -C "$GITHUB_WORKSPACE" diff --quiet &&
+            [[ -z "$(git -C "$GITHUB_WORKSPACE" ls-files --others --exclude-standard)" ]]; then
+            echo "Generated static assets are already current."
+            exit 0
+          fi
+
+          git -C "$GITHUB_WORKSPACE" config user.name "github-actions[bot]"
+          git -C "$GITHUB_WORKSPACE" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if [[ -n "$AUTO_COMMIT_PATHS" ]]; then
+            while IFS= read -r asset_path; do
+              asset_path="${asset_path#"${asset_path%%[![:space:]]*}"}"
+              asset_path="${asset_path%"${asset_path##*[![:space:]]}"}"
+              [[ -z "$asset_path" ]] && continue
+              git -C "$GITHUB_WORKSPACE" add -A -- "$asset_path"
+            done < <(printf '%s\n' "$AUTO_COMMIT_PATHS" | tr ',' '\n')
+          else
+            git -C "$GITHUB_WORKSPACE" add -A -- "$WORKING_DIRECTORY"
+          fi
+
+          if ! git -C "$GITHUB_WORKSPACE" diff --quiet ||
+            [[ -n "$(git -C "$GITHUB_WORKSPACE" ls-files --others --exclude-standard)" ]]; then
+            echo "Generated static assets changed outside the configured auto_commit_paths."
+            git -C "$GITHUB_WORKSPACE" status --short
+            exit 1
+          fi
+
+          if git -C "$GITHUB_WORKSPACE" diff --cached --quiet; then
+            echo "Generated static assets changed outside the configured auto_commit_paths."
+            git -C "$GITHUB_WORKSPACE" status --short
+            exit 1
+          fi
+
+          git -C "$GITHUB_WORKSPACE" commit -m "$AUTO_COMMIT_MESSAGE"
+          git -C "$GITHUB_WORKSPACE" push origin "HEAD:$HEAD_REF"
+
+      - name: Verify generated assets after trusted PR auto-fix
+        if: ${{ inputs.mode == 'check' && inputs.auto_commit_generated_assets && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
+        env:
+          STATIC_ASSETS_COMMAND: ${{ inputs.check_command }}
+        run: *run_static_asset_command
+
+      - name: Build generated assets
+        if: ${{ inputs.mode == 'build' }}
+        env:
+          STATIC_ASSETS_COMMAND: ${{ inputs.build_command }}
+        run: *run_static_asset_command
+
+      - name: Clear private GitHub dependency access
+        if: ${{ always() }}
+        run: &clear_private_git_auth |
+          set -euo pipefail
+          if [[ -n "${STATIC_ASSETS_GITHUB_AUTH_HEADER:-}" ]]; then
+            printf 'STATIC_ASSETS_GITHUB_AUTH_HEADER=\n' >> "$GITHUB_ENV"
+          fi
+
+      - name: Reject unsupported mode
+        if: ${{ inputs.mode != 'check' && inputs.mode != 'build' }}
+        env:
+          MODE: ${{ inputs.mode }}
+        run: |
+          echo "::error::Unsupported static asset mode '$MODE'. Use 'check' or 'build'."
+          exit 1
+
+      - name: Static asset summary
+        env:
+          MODE: ${{ inputs.mode }}
+          WORKING_DIRECTORY: ${{ inputs.working_directory }}
+          CHECK_COMMAND: ${{ inputs.check_command }}
+          BUILD_COMMAND: ${{ inputs.build_command }}
+          AUTO_COMMIT_GENERATED_ASSETS: ${{ inputs.auto_commit_generated_assets }}
+          AUTO_COMMIT_PATHS: ${{ inputs.auto_commit_paths }}
+          AUTO_FIX_TRUSTED_PR: ${{ inputs.mode == 'check' && inputs.auto_commit_generated_assets && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
+        run: |
+          {
+            echo "## Static Assets"
+            echo ""
+            echo "| Attribute | Value |"
+            echo "|-----------|-------|"
+            echo "| Mode | $MODE |"
+            echo "| Working directory | $WORKING_DIRECTORY |"
+            echo "| Check command | \`$CHECK_COMMAND\` |"
+            echo "| Build command | \`$BUILD_COMMAND\` |"
+            echo "| Auto-commit generated assets | $AUTO_COMMIT_GENERATED_ASSETS |"
+            echo "| Auto-commit paths | ${AUTO_COMMIT_PATHS:-$WORKING_DIRECTORY} |"
+            echo "| Trusted PR auto-fix active | $AUTO_FIX_TRUSTED_PR |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  cdn:
+    name: CDN Upload
+    needs: assets
+    if: ${{ inputs.upload_cdn }}
+    runs-on: [self-hosted, notebook, docker-desktop]
+    defaults:
+      run:
+        shell: bash
+        working-directory: ${{ inputs.working_directory }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.checkout_ref || github.ref }}
+          persist-credentials: false
+
+      - name: Set up Python
+        if: ${{ inputs.setup_python }}
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7
+        with:
+          python-version: ${{ inputs.python_version }}
+
+      - name: Set up uv
+        if: ${{ inputs.setup_uv }}
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d  # v10.0.1
+        with:
+          enable-cache: auto
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: ${{ inputs.node_version }}
+          cache: npm
+          cache-dependency-path: ${{ inputs.working_directory }}/package-lock.json
+
+      - name: Prepare private GitHub dependency access
+        env:
+          GITHUB_READ_TOKEN: ${{ secrets.github_read_token }}
+        run: *prepare_private_git_auth
+
+      - name: Install JavaScript tooling
+        if: ${{ inputs.install_command != '' }}
+        env:
+          STATIC_ASSETS_COMMAND: ${{ inputs.install_command }}
+        run: *run_static_asset_command
+
+      - name: Build generated assets
+        env:
+          STATIC_ASSETS_COMMAND: ${{ inputs.build_command }}
+        run: *run_static_asset_command
+
+      - name: Clear private GitHub dependency access
+        if: ${{ always() }}
+        run: *clear_private_git_auth
+
+      - name: Determine CDN version
+        id: version
+        env:
+          CDN_UPLOAD_IMMUTABLE: ${{ inputs.cdn_upload_immutable }}
+          INPUT_VERSION: ${{ inputs.cdn_version }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          version="$INPUT_VERSION"
+          if [[ -z "$version" && -n "${RELEASE_TAG:-}" ]]; then
+            version="${RELEASE_TAG#v}"
+          fi
+
+          if [[ "$CDN_UPLOAD_IMMUTABLE" != "true" && -z "$version" ]]; then
+            echo "version=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Invalid or missing CDN version '$version'. Expected X.Y.Z."
+            exit 1
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Validate CDN inputs
+        env:
+          ASSET_DIRECTORY: ${{ inputs.asset_directory }}
+          CDN_ALIASES: ${{ inputs.cdn_aliases }}
+          CDN_ASSET_GLOBS: ${{ inputs.cdn_asset_globs }}
+          CDN_PREFIX: ${{ inputs.cdn_prefix }}
+          CDN_UPLOAD_IMMUTABLE: ${{ inputs.cdn_upload_immutable }}
+          R2_ACCESS_KEY_ID: ${{ secrets.r2_access_key_id }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.r2_secret_access_key }}
+          R2_ENDPOINT: ${{ secrets.r2_endpoint }}
+          UPDATE_LATEST: ${{ inputs.update_latest }}
+        run: |
+          set -euo pipefail
+          # Parse cdn_asset_globs into a trimmed array (default "*.js,*.css").
+          IFS=',' read -r -a _globs <<< "$CDN_ASSET_GLOBS"
+          for i in "${!_globs[@]}"; do _globs[i]="$(echo "${_globs[i]}" | awk '{$1=$1;print}')"; done
+          find_expr=(); for g in "${_globs[@]}"; do find_expr+=( -o -name "$g" ); done
+          if [[ -z "$ASSET_DIRECTORY" || ! -d "$ASSET_DIRECTORY" ]]; then
+            echo "::error::asset_directory must point to an existing directory when upload_cdn is true."
+            exit 1
+          fi
+          if [[ -z "$CDN_PREFIX" ]]; then
+            echo "::error::cdn_prefix is required when upload_cdn is true."
+            exit 1
+          fi
+          if [[ ! "$CDN_PREFIX" =~ ^([a-z0-9]|[a-z0-9][a-z0-9._/-]*[a-z0-9])$ ]]; then
+            echo "::error::cdn_prefix must use lowercase URL path characters only."
+            exit 1
+          fi
+          if [[ -z "$R2_ACCESS_KEY_ID" || -z "$R2_SECRET_ACCESS_KEY" || -z "$R2_ENDPOINT" ]]; then
+            echo "::error::R2 secrets are required when upload_cdn is true."
+            exit 1
+          fi
+          # Do not pipe ``find`` into ``grep -q`` here. With ``pipefail`` enabled,
+          # grep exits after its first match and makes a successful find fail with
+          # SIGPIPE. ``-print -quit`` yields one matching path without a pipeline.
+          first_matching_asset="$(find "$ASSET_DIRECTORY" -type f \( "${find_expr[@]:1}" \) -print -quit)"
+          if [[ -z "$first_matching_asset" ]]; then
+            echo "::error::asset_directory must contain at least one asset matching cdn_asset_globs ($CDN_ASSET_GLOBS)."
+            exit 1
+          fi
+
+          raw_aliases="$CDN_ALIASES"
+          if [[ "$UPDATE_LATEST" == "true" ]]; then
+            raw_aliases="${raw_aliases}"$'\nlatest'
+          fi
+          mapfile -t aliases < <(
+            printf '%s\n' "$raw_aliases" \
+              | tr ',' '\n' \
+              | awk '{ gsub(/^[[:space:]]+|[[:space:]]+$/, ""); if ($0 != "") print }' \
+              | sort -u
+          )
+
+          if [[ "$CDN_UPLOAD_IMMUTABLE" != "true" && "${#aliases[@]}" -eq 0 ]]; then
+            echo "::error::Alias-only CDN uploads require cdn_aliases or update_latest=true."
+            exit 1
+          fi
+
+          for alias in "${aliases[@]}"; do
+            if [[ ! "$alias" =~ ^([a-z0-9]|[a-z0-9][a-z0-9._/-]*[a-z0-9])$ ]]; then
+              echo "::error::CDN alias '$alias' must use lowercase URL path characters only."
+              exit 1
+            fi
+            if [[ "$alias" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "::error::CDN alias '$alias' looks like an immutable version. Use cdn_version instead."
+              exit 1
+            fi
+          done
+
+      - name: Set up Python for CDN tooling
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7
+        with:
+          python-version: "3.14"
+
+      - name: Install CDN tooling
+        run: |
+          set -euo pipefail
+
+          run_sudo() {
+            if command -v sudo >/dev/null 2>&1; then
+              sudo "$@"
+            else
+              "$@"
+            fi
+          }
+
+          refresh_command_hash() {
+            hash -r 2>/dev/null || true
+          }
+
+          version_at_least() {
+            awk -v current="${1#v}" -v required="${2#v}" 'BEGIN {
+              split(current, current_parts, ".")
+              split(required, required_parts, ".")
+              for (i = 1; i <= 3; i++) {
+                current_part = current_parts[i] + 0
+                required_part = required_parts[i] + 0
+                if (current_part > required_part) exit 0
+                if (current_part < required_part) exit 1
+              }
+              exit 0
+            }'
+          }
+
+          rclone_supports_r2() {
+            if ! command -v rclone >/dev/null 2>&1; then
+              return 1
+            fi
+
+            rclone_version="$(rclone version | awk 'NR == 1 { print $2 }' | sed 's/^v//; s/-.*//')"
+            if version_at_least "$rclone_version" "1.59.0"; then
+              return 0
+            fi
+
+            echo "rclone v${rclone_version} is older than v1.59.0; Cloudflare R2 support requires a newer version."
+            return 1
+          }
+
+          install_rclone_with_apt() {
+            if ! command -v apt-get >/dev/null 2>&1; then
+              return 1
+            fi
+
+            run_sudo apt-get update -qq
+            run_sudo apt-get install -y --no-install-recommends rclone unzip
+            refresh_command_hash
+          }
+
+          install_rclone_with_brew() {
+            if ! command -v brew >/dev/null 2>&1; then
+              return 1
+            fi
+
+            brew install rclone
+            refresh_command_hash
+          }
+
+          install_rclone_from_upstream_archive() {
+            # Last-resort fallback with retry coverage for the actual archive
+            # download. The upstream install script performs additional curl
+            # calls internally, so downloading the release archive directly is
+            # more deterministic for CDN publishing.
+            if command -v apt-get >/dev/null 2>&1; then
+              run_sudo apt-get update -qq
+              run_sudo apt-get install -y --no-install-recommends ca-certificates unzip
+            fi
+
+            os="$(uname -s | tr '[:upper:]' '[:lower:]')"
+            case "$os" in
+              linux) os="linux" ;;
+              darwin) os="osx" ;;
+              *)
+                echo "Unsupported operating system for rclone archive install: $os"
+                return 1
+                ;;
+            esac
+
+            arch="$(uname -m)"
+            case "$arch" in
+              x86_64 | amd64) arch="amd64" ;;
+              aarch64 | arm64) arch="arm64" ;;
+              *)
+                echo "Unsupported architecture for rclone archive install: $arch"
+                return 1
+                ;;
+            esac
+
+            archive_dir="$(mktemp -d)"
+            trap 'rm -rf "$archive_dir"' EXIT
+            archive="$archive_dir/rclone-current-${os}-${arch}.zip"
+            archive_url="https://downloads.rclone.org/rclone-current-${os}-${arch}.zip"
+
+            for attempt in 1 2 3 4 5; do
+              if curl --fail --show-error --silent --location --retry 5 --retry-delay 5 \
+                "$archive_url" --output "$archive"; then
+                find "$archive_dir" -mindepth 1 -maxdepth 1 -type d -name 'rclone-*' -exec rm -rf {} +
+                unzip -q "$archive" -d "$archive_dir"
+                rclone_binary="$(find "$archive_dir" -type f -name rclone -perm -111 | head -1)"
+                if [ -n "$rclone_binary" ]; then
+                  run_sudo install -m 0755 "$rclone_binary" /usr/local/bin/rclone
+                  refresh_command_hash
+                  return 0
+                fi
+              fi
+
+              echo "rclone archive install failed on attempt ${attempt}; retrying..."
+              sleep 5
+            done
+
+            echo "rclone archive install failed after 5 attempts."
+            return 1
+          }
+
+          if rclone_supports_r2; then
+            echo "Using existing rclone: $(rclone version | head -1)"
+          elif install_rclone_with_apt && rclone_supports_r2; then
+            echo "Installed rclone via apt: $(rclone version | head -1)"
+          elif install_rclone_with_brew && rclone_supports_r2; then
+            echo "Installed rclone via Homebrew: $(rclone version | head -1)"
+          else
+            install_rclone_from_upstream_archive
+            refresh_command_hash
+            rclone_supports_r2
+            echo "Installed rclone via upstream archive: $(rclone version | head -1)"
+          fi
+
+          python_bin="$(command -v python3 || command -v python || true)"
+          if [ -z "$python_bin" ]; then
+            echo "Python is required to install awscli for CDN uploads, but neither python3 nor python is available."
+            exit 1
+          fi
+
+          "$python_bin" -m pip install --user --upgrade awscli
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Configure rclone for R2
+        env:
+          R2_ACCESS_KEY_ID: ${{ secrets.r2_access_key_id }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.r2_secret_access_key }}
+          R2_ENDPOINT: ${{ secrets.r2_endpoint }}
+        run: |
+          mkdir -p ~/.config/rclone
+          cat > ~/.config/rclone/rclone.conf <<CONF
+          [r2]
+          type = s3
+          provider = Cloudflare
+          access_key_id = ${R2_ACCESS_KEY_ID}
+          secret_access_key = ${R2_SECRET_ACCESS_KEY}
+          endpoint = ${R2_ENDPOINT}
+          acl = private
+          no_check_bucket = true
+          CONF
+
+      - name: Configure R2 bucket CORS
+        env:
+          CDN_BUCKET: ${{ inputs.cdn_bucket }}
+          R2_ACCESS_KEY_ID: ${{ secrets.r2_access_key_id }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.r2_secret_access_key }}
+          R2_ENDPOINT: ${{ secrets.r2_endpoint }}
+        run: |
+          set -euo pipefail
+          cors_file="$(mktemp)"
+          cors_error="$(mktemp)"
+          trap 'rm -f "$cors_file" "$cors_error"' EXIT
+          cat > "$cors_file" <<'JSON'
+          {
+            "CORSRules": [
+              {
+                "AllowedHeaders": ["*"],
+                "AllowedMethods": ["GET", "HEAD"],
+                "AllowedOrigins": ["*"],
+                "ExposeHeaders": [
+                  "Cache-Control",
+                  "Content-Length",
+                  "Content-Type",
+                  "ETag"
+                ],
+                "MaxAgeSeconds": 3600
+              }
+            ]
+          }
+          JSON
+
+          if ! AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID" \
+            AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY" \
+            AWS_DEFAULT_REGION=auto \
+            AWS_REQUEST_CHECKSUM_CALCULATION=when_required \
+              aws s3api put-bucket-cors \
+                --endpoint-url "$R2_ENDPOINT" \
+                --bucket "$CDN_BUCKET" \
+                --cors-configuration "file://$cors_file" \
+                2>"$cors_error"; then
+            if grep -q "AccessDenied" "$cors_error"; then
+              echo "::warning::R2 credentials cannot update bucket CORS; continuing with the mandatory public CORS verification after upload."
+            else
+              cat "$cors_error" >&2
+              exit 1
+            fi
+          fi
+
+      - name: Upload immutable version
+        if: ${{ inputs.cdn_upload_immutable }}
+        env:
+          ASSET_DIRECTORY: ${{ inputs.asset_directory }}
+          CDN_ASSET_GLOBS: ${{ inputs.cdn_asset_globs }}
+          CDN_BUCKET: ${{ inputs.cdn_bucket }}
+          CDN_PREFIX: ${{ inputs.cdn_prefix }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          # Parse cdn_asset_globs into per-tool argument arrays (default "*.js,*.css").
+          IFS=',' read -r -a _globs <<< "$CDN_ASSET_GLOBS"
+          for i in "${!_globs[@]}"; do _globs[i]="$(echo "${_globs[i]}" | awk '{$1=$1;print}')"; done
+          find_expr=(); for g in "${_globs[@]}"; do find_expr+=( -o -name "$g" ); done
+          inc=(); for g in "${_globs[@]}"; do inc+=(--include "$g"); done
+          flt=(); for g in "${_globs[@]}"; do flt+=(--filter "+ $g"); done; flt+=(--filter '- *')
+
+          version_remote="r2:${CDN_BUCKET}/${CDN_PREFIX}/v${VERSION}/"
+          local_assets="$(mktemp)"
+          remote_assets="$(mktemp)"
+
+          find "$ASSET_DIRECTORY" -type f \( "${find_expr[@]:1}" \) \
+            -printf '%P\n' \
+            | sort > "$local_assets"
+
+          rclone lsf "$version_remote" \
+            --files-only \
+            --recursive \
+            "${flt[@]}" \
+            | sort > "$remote_assets"
+
+          if [[ -s "$remote_assets" ]] && ! cmp -s "$local_assets" "$remote_assets"; then
+            echo "::error::Versioned CDN path already exists with a different asset inventory: ${CDN_PREFIX}/v${VERSION}/"
+            echo "::group::Expected local asset inventory"
+            cat "$local_assets"
+            echo "::endgroup::"
+            echo "::group::Existing remote asset inventory"
+            cat "$remote_assets"
+            echo "::endgroup::"
+            exit 1
+          fi
+
+          rclone copy "$ASSET_DIRECTORY" "$version_remote" \
+            "${inc[@]}" \
+            --exclude '*' \
+            --header-upload "Cache-Control: public, max-age=31536000, immutable" \
+            --immutable \
+            --no-update-modtime \
+            -v
+
+      - name: Verify immutable CDN upload
+        if: ${{ inputs.cdn_upload_immutable }}
+        env:
+          ASSET_DIRECTORY: ${{ inputs.asset_directory }}
+          CDN_ALIASES: ""
+          CDN_ASSET_GLOBS: ${{ inputs.cdn_asset_globs }}
+          CDN_BASE_URL: ${{ inputs.cdn_base_url }}
+          CDN_BUCKET: ${{ inputs.cdn_bucket }}
+          CDN_CACHE_MODE: immutable
+          CDN_CORS_VERIFY_ORIGIN: ${{ inputs.cdn_cors_verify_origin }}
+          CDN_MUTABLE_CACHE_MAX_AGE: ${{ inputs.cdn_mutable_cache_max_age }}
+          CDN_PREFIX: ${{ inputs.cdn_prefix }}
+          UPDATE_LATEST: "false"
+          VERSION: ${{ steps.version.outputs.version }}
+        run: &verify_cdn_upload |
+          set -euo pipefail
+          IFS=',' read -r -a _globs <<< "$CDN_ASSET_GLOBS"
+          for i in "${!_globs[@]}"; do _globs[i]="$(echo "${_globs[i]}" | awk '{$1=$1;print}')"; done
+          find_expr=(); for g in "${_globs[@]}"; do find_expr+=( -o -name "$g" ); done
+          inc=(); for g in "${_globs[@]}"; do inc+=(--include "$g"); done
+
+          if [[ "$CDN_CACHE_MODE" == "immutable" ]]; then
+            aliases=("v${VERSION}")
+          else
+            raw_aliases="$CDN_ALIASES"
+            if [[ "$UPDATE_LATEST" == "true" ]]; then
+              raw_aliases="${raw_aliases}"$'\nlatest'
+            fi
+            mapfile -t aliases < <(
+              printf '%s\n' "$raw_aliases" \
+                | tr ',' '\n' \
+                | awk '{ gsub(/^[[:space:]]+|[[:space:]]+$/, ""); if ($0 != "") print }' \
+                | sort -u
+            )
+          fi
+
+          if [[ "${#aliases[@]}" -eq 0 ]]; then
+            exit 0
+          fi
+
+          for alias in "${aliases[@]}"; do
+            rclone check "$ASSET_DIRECTORY" "r2:${CDN_BUCKET}/${CDN_PREFIX}/${alias}/" \
+              "${inc[@]}" \
+              --exclude '*' \
+              --size-only \
+              -v
+          done
+
+          assets_file="$(mktemp)"
+          representative_assets="$(mktemp)"
+          representative_kinds="$(mktemp)"
+          headers_file="$(mktemp)"
+          trap 'rm -f "$assets_file" "$representative_assets" "$representative_kinds" "$headers_file"' EXIT
+
+          find "$ASSET_DIRECTORY" -type f \( "${find_expr[@]:1}" \) \
+            | sort > "$assets_file"
+
+          # R2 is checked exhaustively above. The public edge is sampled once
+          # per asset extension to keep verification useful without producing
+          # a burst of duplicate bot/WAF requests for every object.
+          while IFS= read -r asset_path; do
+            relative_path="${asset_path#"${ASSET_DIRECTORY}/"}"
+            filename="${relative_path##*/}"
+            if [[ "$filename" == *.* ]]; then
+              asset_kind=".${filename##*.}"
+            else
+              asset_kind="$filename"
+            fi
+            if ! grep -Fqx -- "$asset_kind" "$representative_kinds"; then
+              printf '%s\n' "$asset_kind" >> "$representative_kinds"
+              printf '%s\n' "$asset_path" >> "$representative_assets"
+            fi
+          done < "$assets_file"
+
+          if [[ ! -s "$representative_assets" ]]; then
+            echo "::error::Cannot verify the public CDN because no matching asset was found."
+            exit 1
+          fi
+
+          header_value() {
+            local header_name="$1"
+            awk -v wanted="$header_name" '
+              BEGIN { IGNORECASE = 1 }
+              index($0, wanted ":") == 1 {
+                sub(/^[^:]*:[[:space:]]*/, "")
+                gsub(/\r$/, "")
+                value = $0
+              }
+              END { print value }
+            ' "$headers_file"
+          }
+
+          verify_query="verify=${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          while IFS= read -r asset_path; do
+            relative_path="${asset_path#"${ASSET_DIRECTORY}/"}"
+            for alias in "${aliases[@]}"; do
+              public_url="${CDN_BASE_URL%/}/${CDN_PREFIX}/${alias}/${relative_path}"
+              url="${public_url}?${verify_query}"
+              : > "$headers_file"
+
+              set +e
+              http_code="$(
+                curl --fail --silent --show-error --location --range 0-0 \
+                  --dump-header "$headers_file" \
+                  --output /dev/null \
+                  --write-out '%{http_code}' \
+                  --connect-timeout 10 \
+                  --max-time 30 \
+                  --retry 3 \
+                  --retry-connrefused \
+                  --retry-delay 2 \
+                  --header "Origin: $CDN_CORS_VERIFY_ORIGIN" \
+                  --user-agent "AlpinInsight-CDN-Verifier/1.0" \
+                  "$url"
+              )"
+              curl_status=$?
+              set -e
+
+              cf_ray="$(header_value cf-ray)"
+              cf_mitigated="$(header_value cf-mitigated)"
+              server="$(header_value server)"
+              if [[ "$curl_status" -ne 0 || ( "$http_code" != "200" && "$http_code" != "206" ) ]]; then
+                echo "::error title=CDN public verification failed::url=${public_url} status=${http_code:-unavailable} curl_exit=${curl_status} cf-ray=${cf_ray:-unavailable} cf-mitigated=${cf_mitigated:-none} server=${server:-unavailable}"
+                exit 1
+              fi
+
+              cache_control="$(header_value cache-control)"
+              content_type="$(header_value content-type)"
+              access_control_allow_origin="$(header_value access-control-allow-origin)"
+
+              if [[ "$CDN_CACHE_MODE" == "immutable" && "$cache_control" != *"immutable"* ]]; then
+                echo "::error::Missing immutable Cache-Control for $public_url"
+                exit 1
+              fi
+              if [[ "$CDN_CACHE_MODE" == "mutable" && "$cache_control" != *"max-age=${CDN_MUTABLE_CACHE_MAX_AGE}"* ]]; then
+                echo "::error::Unexpected mutable alias Cache-Control for $public_url: $cache_control"
+                exit 1
+              fi
+              if [[ "$relative_path" == *.js && ! "$content_type" =~ javascript ]]; then
+                echo "::error::Unexpected JavaScript Content-Type for $public_url: $content_type"
+                exit 1
+              fi
+              if [[ "$relative_path" == *.css && "$content_type" != text/css* ]]; then
+                echo "::error::Unexpected CSS Content-Type for $public_url: $content_type"
+                exit 1
+              fi
+              if [[ "$access_control_allow_origin" != "*" && "$access_control_allow_origin" != "$CDN_CORS_VERIFY_ORIGIN" ]]; then
+                echo "::error::Missing CDN CORS header for $public_url: $access_control_allow_origin"
+                exit 1
+              fi
+            done
+          done < "$representative_assets"
+
+      - name: Upload mutable aliases
+        env:
+          ASSET_DIRECTORY: ${{ inputs.asset_directory }}
+          CDN_ALIASES: ${{ inputs.cdn_aliases }}
+          CDN_ASSET_GLOBS: ${{ inputs.cdn_asset_globs }}
+          CDN_BUCKET: ${{ inputs.cdn_bucket }}
+          CDN_MUTABLE_CACHE_CONTROL: ${{ inputs.cdn_mutable_cache_control }}
+          CDN_PREFIX: ${{ inputs.cdn_prefix }}
+          R2_ACCESS_KEY_ID: ${{ secrets.r2_access_key_id }}
+          R2_ENDPOINT: ${{ secrets.r2_endpoint }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.r2_secret_access_key }}
+          UPDATE_LATEST: ${{ inputs.update_latest }}
+        run: |
+          set -euo pipefail
+          # Parse cdn_asset_globs into rclone --include args (default "*.js,*.css").
+          IFS=',' read -r -a _globs <<< "$CDN_ASSET_GLOBS"
+          for i in "${!_globs[@]}"; do _globs[i]="$(echo "${_globs[i]}" | awk '{$1=$1;print}')"; done
+          inc=(); for g in "${_globs[@]}"; do inc+=(--include "$g"); done
+          aws_inc=(); for g in "${_globs[@]}"; do aws_inc+=(--include "$g"); done
+
+          raw_aliases="$CDN_ALIASES"
+          if [[ "$UPDATE_LATEST" == "true" ]]; then
+            raw_aliases="${raw_aliases}"$'\nlatest'
+          fi
+          mapfile -t aliases < <(
+            printf '%s\n' "$raw_aliases" \
+              | tr ',' '\n' \
+              | awk '{ gsub(/^[[:space:]]+|[[:space:]]+$/, ""); if ($0 != "") print }' \
+              | sort -u
+          )
+
+          # Keep the alias inventory synchronized first. Then overwrite each
+          # selected object through PutObject so Cache-Control is refreshed
+          # even when the payload bytes did not change. R2 does not implement
+          # the rclone operation selected by --ignore-times for these existing
+          # objects and returns HTTP 501 instead.
+          for alias in "${aliases[@]}"; do
+            rclone sync "$ASSET_DIRECTORY" "r2:${CDN_BUCKET}/${CDN_PREFIX}/${alias}/" \
+              "${inc[@]}" \
+              --exclude '*' \
+              --header-upload "Cache-Control: ${CDN_MUTABLE_CACHE_CONTROL}" \
+              --no-update-modtime \
+              -v
+
+            AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID" \
+            AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY" \
+            AWS_DEFAULT_REGION=auto \
+            AWS_REQUEST_CHECKSUM_CALCULATION=when_required \
+              aws s3 cp "${ASSET_DIRECTORY%/}/" "s3://${CDN_BUCKET}/${CDN_PREFIX}/${alias}/" \
+                --endpoint-url "$R2_ENDPOINT" \
+                --recursive \
+                --exclude '*' \
+                "${aws_inc[@]}" \
+                --cache-control "$CDN_MUTABLE_CACHE_CONTROL" \
+                --only-show-errors
+          done
+
+      - name: Verify mutable alias R2 metadata
+        env:
+          ASSET_DIRECTORY: ${{ inputs.asset_directory }}
+          CDN_ALIASES: ${{ inputs.cdn_aliases }}
+          CDN_ASSET_GLOBS: ${{ inputs.cdn_asset_globs }}
+          CDN_BUCKET: ${{ inputs.cdn_bucket }}
+          CDN_MUTABLE_CACHE_CONTROL: ${{ inputs.cdn_mutable_cache_control }}
+          CDN_PREFIX: ${{ inputs.cdn_prefix }}
+          R2_ACCESS_KEY_ID: ${{ secrets.r2_access_key_id }}
+          R2_ENDPOINT: ${{ secrets.r2_endpoint }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.r2_secret_access_key }}
+          UPDATE_LATEST: ${{ inputs.update_latest }}
+        run: |
+          set -euo pipefail
+          IFS=',' read -r -a _globs <<< "$CDN_ASSET_GLOBS"
+          for i in "${!_globs[@]}"; do _globs[i]="$(echo "${_globs[i]}" | awk '{$1=$1;print}')"; done
+          find_expr=(); for g in "${_globs[@]}"; do find_expr+=( -o -name "$g" ); done
+
+          raw_aliases="$CDN_ALIASES"
+          if [[ "$UPDATE_LATEST" == "true" ]]; then
+            raw_aliases="${raw_aliases}"$'\nlatest'
+          fi
+          mapfile -t aliases < <(
+            printf '%s\n' "$raw_aliases" \
+              | tr ',' '\n' \
+              | awk '{ gsub(/^[[:space:]]+|[[:space:]]+$/, ""); if ($0 != "") print }' \
+              | sort -u
+          )
+
+          if [[ "${#aliases[@]}" -eq 0 ]]; then
+            exit 0
+          fi
+
+          sample_asset="$(find "$ASSET_DIRECTORY" -type f \( "${find_expr[@]:1}" \) | sort | sed -n '1p')"
+          if [[ -z "$sample_asset" ]]; then
+            echo "::error::Cannot verify mutable R2 metadata because no matching asset was found."
+            exit 1
+          fi
+          relative_path="${sample_asset#"${ASSET_DIRECTORY}/"}"
+
+          for alias in "${aliases[@]}"; do
+            object_key="${CDN_PREFIX}/${alias}/${relative_path}"
+            cache_control="$(
+              AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID" \
+              AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY" \
+              AWS_DEFAULT_REGION=auto \
+              AWS_REQUEST_CHECKSUM_CALCULATION=when_required \
+                aws s3api head-object \
+                  --endpoint-url "$R2_ENDPOINT" \
+                  --bucket "$CDN_BUCKET" \
+                  --key "$object_key" \
+                  --query CacheControl \
+                  --output text
+            )"
+            if [[ "$cache_control" != "$CDN_MUTABLE_CACHE_CONTROL" ]]; then
+              echo "::error::Unexpected R2 Cache-Control for ${object_key}: ${cache_control}"
+              exit 1
+            fi
+          done
+
+      - name: Verify mutable CDN aliases
+        env:
+          ASSET_DIRECTORY: ${{ inputs.asset_directory }}
+          CDN_ALIASES: ${{ inputs.cdn_aliases }}
+          CDN_ASSET_GLOBS: ${{ inputs.cdn_asset_globs }}
+          CDN_BASE_URL: ${{ inputs.cdn_base_url }}
+          CDN_BUCKET: ${{ inputs.cdn_bucket }}
+          CDN_CACHE_MODE: mutable
+          CDN_CORS_VERIFY_ORIGIN: ${{ inputs.cdn_cors_verify_origin }}
+          CDN_MUTABLE_CACHE_MAX_AGE: ${{ inputs.cdn_mutable_cache_max_age }}
+          CDN_PREFIX: ${{ inputs.cdn_prefix }}
+          VERSION: ${{ steps.version.outputs.version }}
+          UPDATE_LATEST: ${{ inputs.update_latest }}
+        run: *verify_cdn_upload
+
+      - name: CDN summary
+        env:
+          CDN_ALIASES: ${{ inputs.cdn_aliases }}
+          CDN_BASE_URL: ${{ inputs.cdn_base_url }}
+          CDN_PREFIX: ${{ inputs.cdn_prefix }}
+          CDN_UPLOAD_IMMUTABLE: ${{ inputs.cdn_upload_immutable }}
+          VERSION: ${{ steps.version.outputs.version }}
+          UPDATE_LATEST: ${{ inputs.update_latest }}
+        run: |
+          raw_aliases="$CDN_ALIASES"
+          if [[ "$UPDATE_LATEST" == "true" ]]; then
+            raw_aliases="${raw_aliases}"$'\nlatest'
+          fi
+          mapfile -t aliases < <(
+            printf '%s\n' "$raw_aliases" \
+              | tr ',' '\n' \
+              | awk '{ gsub(/^[[:space:]]+|[[:space:]]+$/, ""); if ($0 != "") print }' \
+              | sort -u
+          )
+
+          {
+            echo "## CDN Upload"
+            echo ""
+            echo "| Attribute | Value |"
+            echo "|-----------|-------|"
+            if [[ "$CDN_UPLOAD_IMMUTABLE" == "true" ]]; then
+              echo "| Versioned URL | ${CDN_BASE_URL%/}/${CDN_PREFIX}/v${VERSION}/ |"
+            fi
+            for alias in "${aliases[@]}"; do
+              echo "| Alias URL | ${CDN_BASE_URL%/}/${CDN_PREFIX}/${alias}/ |"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
