@@ -46,4 +46,4 @@ jobs:
     with:
       python_versions: '["3.13"]'
     secrets:
-      github_read_token: ${{ secrets.GITHUB_READ_TOKEN }}
+      github_read_token: ${{ secrets.INSIGHT_TOKEN_RO }}
