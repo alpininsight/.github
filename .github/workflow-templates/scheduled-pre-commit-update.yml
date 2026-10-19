@@ -10,7 +10,13 @@
 #   - keeps org automation logic private and centrally maintained
 # When copied:
 #   - keep this header so the source remains visible in downstream repos
+#   - copy only into a repo intentionally maintaining a tracked, non-empty,
+#     regular .pre-commit-config.yaml; otherwise leave the updater uninstalled
+#   - run_pre_commit: false in the default quality workflow does not disable
+#     this scheduled updater
 #   - ensure INSIGHT_TOKEN is available to the repo, preferably via an org-level GitHub Actions secret
+#   - see https://github.com/alpininsight/.github-private/blob/develop/docs/ci-workflows/scheduled-pre-commit-update-reusable.md
+#     and https://github.com/alpininsight/.github-private/issues/717
 # =============================================================================
 
 name: Scheduled pre-commit update (Alpin Insight)
