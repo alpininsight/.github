@@ -1,0 +1,35 @@
+name: Public release contract caller proof - invalid inputs
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+    paths:
+      - .github/workflows/release-version-contract-caller-proof.yml
+
+permissions: {}
+
+jobs:
+  invalid-base-version:
+    name: Reject a target version with a leading zero
+    permissions:
+      contents: read
+    uses: alpininsight/.github/.github/workflows/release-version-contract.yml@f1fac92bbcfa038f89cdab1eb52c7a58b775c3cc
+    with:
+      release_kind: rc
+      target_version: '02.0.0'
+      rc_number: '1'
+      contract_revision: 'f1fac92bbcfa038f89cdab1eb52c7a58b775c3cc'
+      contract_sha256: '965f1bbf6a488b332462b71b462393510ce0b5cbea3470bc28de050acbea780a'
+
+  invalid-rc-number:
+    name: Reject RC number zero
+    permissions:
+      contents: read
+    uses: alpininsight/.github/.github/workflows/release-version-contract.yml@f1fac92bbcfa038f89cdab1eb52c7a58b775c3cc
+    with:
+      release_kind: rc
+      target_version: '2.0.0'
+      rc_number: '0'
+      contract_revision: 'f1fac92bbcfa038f89cdab1eb52c7a58b775c3cc'
+      contract_sha256: '965f1bbf6a488b332462b71b462393510ce0b5cbea3470bc28de050acbea780a'
