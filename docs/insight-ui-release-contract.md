@@ -16,6 +16,14 @@ Callers pin both the reusable workflow and its script to the same reviewed full
 commit SHA, plus the script's SHA256. The script is fetched only from this public
 repository without credentials. Invalid or mismatched content stops before execution.
 
+The calling job grants `contents: read` as the maximum permission required by
+the workflow's declared PR self-test job. The calculation job explicitly reduces
+this to `permissions: {}`. This respects GitHub's rule that a called workflow
+cannot elevate caller permissions without relying on an unverified exception
+for skipped jobs. The starter declares this read-only ceiling; future private
+callers must do the same when separately adopted. No private caller is changed
+by this public Source step.
+
 This Source change is based on public `main` at
 `3bb8e04b5a03b3b9a3de09105e14388f93289c10`, on the feature branch
 `feat/insight-ui-public-release-contract-20261031`. The historical develop branch

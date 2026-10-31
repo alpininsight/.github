@@ -18,6 +18,10 @@ permissions: {}
 
 jobs:
   version:
+    # Match the reusable workflow's declared maximum permission. Its calculation
+    # job explicitly reduces this to no repository permissions.
+    permissions:
+      contents: read
     # Preparation placeholder: replace BOTH revisions with the same independently
     # reviewed public contract commit, and set its script SHA256 before adoption.
     uses: alpininsight/.github/.github/workflows/release-version-contract.yml@0000000000000000000000000000000000000000

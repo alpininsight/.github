@@ -67,6 +67,7 @@ jobs:
     # No input key exists for this file's own PR event. Checking key presence
     # also lets invalid empty call inputs reach the fail-closed validator.
     if: contains(toJSON(inputs), '"target_version"')
+    permissions: {}
     runs-on: ubuntu-latest
     timeout-minutes: 3
     outputs:
