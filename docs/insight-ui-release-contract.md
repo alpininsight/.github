@@ -1,7 +1,10 @@
 # Public release identity contract
 
 The public workflow validates release names. It contains no private reusable
-workflow calls, tokens, approval-policy changes, tag writes or uploads.
+workflow calls, user-supplied credential references, approval-policy changes,
+tag writes or uploads. The PR checkout uses the automatic read-only GitHub token
+without persisting it; the calculation job fetches the public script without
+credentials.
 
 | Choice | SemVer | Python package version | Git tag |
 | --- | --- | --- | --- |
