@@ -1,0 +1,71 @@
+name: Public release contract caller proof - valid outputs
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+    paths:
+      - .github/workflows/release-version-contract-caller-proof.yml
+
+permissions: {}
+
+jobs:
+  rc-version:
+    name: Calculate RC1 identity without publication
+    permissions:
+      contents: read
+    uses: alpininsight/.github/.github/workflows/release-version-contract.yml@f1fac92bbcfa038f89cdab1eb52c7a58b775c3cc
+    with:
+      release_kind: rc
+      target_version: '2.0.0'
+      rc_number: '1'
+      contract_revision: 'f1fac92bbcfa038f89cdab1eb52c7a58b775c3cc'
+      contract_sha256: '965f1bbf6a488b332462b71b462393510ce0b5cbea3470bc28de050acbea780a'
+
+  stable-version:
+    name: Calculate stable identity without publication
+    permissions:
+      contents: read
+    uses: alpininsight/.github/.github/workflows/release-version-contract.yml@f1fac92bbcfa038f89cdab1eb52c7a58b775c3cc
+    with:
+      release_kind: stable
+      target_version: '2.0.0'
+      rc_number: '1'
+      contract_revision: 'f1fac92bbcfa038f89cdab1eb52c7a58b775c3cc'
+      contract_sha256: '965f1bbf6a488b332462b71b462393510ce0b5cbea3470bc28de050acbea780a'
+
+  assert-outputs:
+    name: Verify both results and all release identity outputs
+    needs: [rc-version, stable-version]
+    if: always()
+    permissions: {}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Assert the exact successful caller contract
+        env:
+          RC_RESULT: ${{ needs.rc-version.result }}
+          STABLE_RESULT: ${{ needs.stable-version.result }}
+          RC_RELEASE_KIND: ${{ needs.rc-version.outputs.release_kind }}
+          STABLE_RELEASE_KIND: ${{ needs.stable-version.outputs.release_kind }}
+          RC_BASE_VERSION: ${{ needs.rc-version.outputs.base_version }}
+          STABLE_BASE_VERSION: ${{ needs.stable-version.outputs.base_version }}
+          RC_SEMVER: ${{ needs.rc-version.outputs.semver }}
+          STABLE_SEMVER: ${{ needs.stable-version.outputs.semver }}
+          RC_PYTHON_VERSION: ${{ needs.rc-version.outputs.python_version }}
+          STABLE_PYTHON_VERSION: ${{ needs.stable-version.outputs.python_version }}
+          RC_TAG: ${{ needs.rc-version.outputs.tag }}
+          STABLE_TAG: ${{ needs.stable-version.outputs.tag }}
+          RC_IS_PRERELEASE: ${{ needs.rc-version.outputs.is_prerelease }}
+          STABLE_IS_PRERELEASE: ${{ needs.stable-version.outputs.is_prerelease }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import os
+
+          expected = {"RC_RESULT":"success","STABLE_RESULT":"success","RC_RELEASE_KIND":"rc","STABLE_RELEASE_KIND":"stable","RC_BASE_VERSION":"2.0.0","STABLE_BASE_VERSION":"2.0.0","RC_SEMVER":"2.0.0-rc.1","STABLE_SEMVER":"2.0.0","RC_PYTHON_VERSION":"2.0.0rc1","STABLE_PYTHON_VERSION":"2.0.0","RC_TAG":"v2.0.0-rc.1","STABLE_TAG":"v2.0.0","RC_IS_PRERELEASE":"true","STABLE_IS_PRERELEASE":"false"}
+          mismatches = [key for key, value in expected.items() if os.environ.get(key) != value]
+          if mismatches:
+              raise SystemExit('Reusable version contract mismatched: ' + ', '.join(mismatches))
+          print('Verified both successful calls and six exact string outputs per mode.')
+          PY
