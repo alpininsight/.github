@@ -1,0 +1,33 @@
+name: Check Insight UI release identity
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_kind:
+        type: choice
+        options: [rc, stable]
+        default: rc
+      target_version:
+        type: string
+        required: true
+      rc_number:
+        type: string
+        default: '1'
+
+permissions: {}
+
+jobs:
+  version:
+    # Match the reusable workflow's declared maximum permission. Its calculation
+    # job explicitly reduces this to no repository permissions.
+    permissions:
+      contents: read
+    # Preparation placeholder: replace BOTH revisions with the same independently
+    # reviewed public contract commit, and set its script SHA256 before adoption.
+    uses: alpininsight/.github/.github/workflows/release-version-contract.yml@0000000000000000000000000000000000000000
+    with:
+      release_kind: ${{ inputs.release_kind }}
+      target_version: ${{ inputs.target_version }}
+      rc_number: ${{ inputs.rc_number }}
+      contract_revision: '0000000000000000000000000000000000000000'
+      contract_sha256: '0000000000000000000000000000000000000000000000000000000000000000'

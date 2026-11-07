@@ -1,0 +1,109 @@
+name: Public release version contract
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/release-version-contract.yml
+      - workflow-templates/insight-ui-release-contract.yml
+      - workflow-templates/insight-ui-release-contract.properties.json
+      - scripts/release_version_contract.py
+      - scripts/test_release_version_contract.py
+      - docs/insight-ui-release-contract.md
+  workflow_call:
+    inputs:
+      release_kind:
+        type: string
+        required: true
+      target_version:
+        type: string
+        required: true
+      rc_number:
+        type: string
+        default: '1'
+      contract_revision:
+        description: Same reviewed full commit SHA used to pin this reusable workflow
+        type: string
+        required: true
+      contract_sha256:
+        description: SHA256 of scripts/release_version_contract.py at that revision
+        type: string
+        required: true
+    outputs:
+      release_kind:
+        value: ${{ jobs.version.outputs.release_kind }}
+      base_version:
+        value: ${{ jobs.version.outputs.base_version }}
+      semver:
+        value: ${{ jobs.version.outputs.semver }}
+      python_version:
+        value: ${{ jobs.version.outputs.python_version }}
+      tag:
+        value: ${{ jobs.version.outputs.tag }}
+      is_prerelease:
+        value: ${{ jobs.version.outputs.is_prerelease }}
+
+permissions: {}
+
+jobs:
+  self-test:
+    name: Test public release identities
+    # A reusable workflow inherits its caller's event name. The required input
+    # key identifies workflow_call even when that caller itself is a PR.
+    if: github.event_name == 'pull_request' && !contains(toJSON(inputs), '"target_version"')
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout the PR test source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Run the six pure version tests
+        run: python3 -B -m unittest discover -s scripts -p test_release_version_contract.py -v
+
+  version:
+    # No input key exists for this file's own PR event. Checking key presence
+    # also lets invalid empty call inputs reach the fail-closed validator.
+    if: contains(toJSON(inputs), '"target_version"')
+    permissions: {}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      release_kind: ${{ steps.identity.outputs.release_kind }}
+      base_version: ${{ steps.identity.outputs.base_version }}
+      semver: ${{ steps.identity.outputs.semver }}
+      python_version: ${{ steps.identity.outputs.python_version }}
+      tag: ${{ steps.identity.outputs.tag }}
+      is_prerelease: ${{ steps.identity.outputs.is_prerelease }}
+    steps:
+      - name: Validate the pinned public contract and calculate release identity
+        id: identity
+        env:
+          RELEASE_KIND: ${{ inputs.release_kind }}
+          TARGET_VERSION: ${{ inputs.target_version }}
+          RC_NUMBER: ${{ inputs.rc_number }}
+          CONTRACT_REVISION: ${{ inputs.contract_revision }}
+          CONTRACT_SHA256: ${{ inputs.contract_sha256 }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import hashlib, os, re, subprocess, sys, tempfile, urllib.request
+          revision = os.environ['CONTRACT_REVISION']
+          digest = os.environ['CONTRACT_SHA256']
+          if re.fullmatch(r'[0-9a-f]{40}', revision) is None or re.fullmatch(r'[0-9a-f]{64}', digest) is None:
+              raise SystemExit('Contract revision and digest must be immutable lowercase hashes')
+          url = f'https://raw.githubusercontent.com/alpininsight/.github/{revision}/scripts/release_version_contract.py'
+          with urllib.request.urlopen(url, timeout=15) as response:
+              if not response.url.startswith('https://raw.githubusercontent.com/'):
+                  raise SystemExit('Unexpected public contract redirect')
+              code = response.read(262145)
+          if len(code) > 262144 or hashlib.sha256(code).hexdigest() != digest:
+              raise SystemExit('Public contract content does not match its reviewed digest')
+          with tempfile.TemporaryDirectory(dir=os.environ['RUNNER_TEMP']) as directory:
+              from pathlib import Path
+              path = Path(directory) / 'release_version_contract.py'
+              path.write_bytes(code)
+              subprocess.run([sys.executable, str(path)], check=True)
+          PY

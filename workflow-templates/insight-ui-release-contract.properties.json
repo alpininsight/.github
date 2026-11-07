@@ -1,0 +1,5 @@
+{
+  "name": "Insight UI release identity",
+  "description": "Validate an RC or stable version through a public credential-free contract. This starter never publishes.",
+  "categories": ["Python"]
+}
