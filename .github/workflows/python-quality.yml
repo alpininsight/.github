@@ -126,7 +126,12 @@ jobs:
           package-manager-cache: false
       - name: Sync dependencies
         if: inputs.run_uv_sync
-        run: uv sync ${{ inputs.uv_sync_args }}
+        env:
+          UV_SYNC_ARGS: ${{ inputs.uv_sync_args }}
+        run: |
+          # Arguments are a trusted caller input and must word-split.
+          # shellcheck disable=SC2086
+          uv sync $UV_SYNC_ARGS
       - name: Configure isolated pre-commit environment
         if: inputs.run_pre_commit && inputs.pre_commit_command != ''
         env:
@@ -147,19 +152,29 @@ jobs:
           fi
       - name: Run pre-commit
         if: inputs.run_pre_commit && inputs.pre_commit_command != ''
-        run: ${{ inputs.pre_commit_command }}
+        env:
+          CMD: ${{ inputs.pre_commit_command }}
+        run: bash -c "$CMD"
       - name: Lint
         if: inputs.lint_command != ''
-        run: ${{ inputs.lint_command }}
+        env:
+          CMD: ${{ inputs.lint_command }}
+        run: bash -c "$CMD"
       - name: Format check
         if: inputs.format_command != ''
-        run: ${{ inputs.format_command }}
+        env:
+          CMD: ${{ inputs.format_command }}
+        run: bash -c "$CMD"
       - name: Django system check
         if: inputs.django_check_command != ''
-        run: ${{ inputs.django_check_command }}
+        env:
+          CMD: ${{ inputs.django_check_command }}
+        run: bash -c "$CMD"
       - name: Tests
         if: inputs.test_command != ''
-        run: ${{ inputs.test_command }}
+        env:
+          CMD: ${{ inputs.test_command }}
+        run: bash -c "$CMD"
 
   gitleaks:
     name: Gitleaks

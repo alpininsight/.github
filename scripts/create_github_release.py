@@ -198,9 +198,11 @@ def plan_release(
             raise ReleaseError("Invalid immutable release source")
         if api is not None and source:
             current = resolve_tag_commit(api, repository, tag)
+            existing = existing_release(api, repository, tag, identity["is_prerelease"])
+            if existing is not None and current is None:
+                raise ReleaseError("Existing release has no source tag")
             if current is not None and current != source:
                 raise ReleaseError("Release tag belongs to another source commit")
-            existing_release(api, repository, tag, identity["is_prerelease"])
     result = {
         "release_kind": identity["release_kind"],
         "base_version": identity["base_version"],

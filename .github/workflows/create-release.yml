@@ -90,7 +90,8 @@ jobs:
     if: contains(toJSON(inputs), '"target_version"')
     runs-on: ubuntu-latest
     timeout-minutes: 3
-    permissions: {}
+    permissions:
+      contents: read
     outputs:
       release_kind: ${{ steps.plan.outputs.release_kind }}
       base_version: ${{ steps.plan.outputs.base_version }}
@@ -110,10 +111,12 @@ jobs:
           CONTRACT_REVISION: ${{ inputs.contract_revision }}
           CONTRACT_SHA256: ${{ inputs.contract_sha256 }}
           RELEASE_SHA256: ${{ inputs.release_sha256 }}
+          GH_TOKEN: ${{ github.token }}
           RELEASE_REPOSITORY: ${{ github.repository }}
           SOURCE_REVISION: ${{ inputs.checkout_ref }}
           CREATE: 'false'
           REQUIRE_MAIN: 'false'
+          VALIDATE_EXISTING: 'true'
         shell: bash
         run: |
           python3 - <<'PY'

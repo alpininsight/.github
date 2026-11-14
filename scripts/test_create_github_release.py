@@ -12,12 +12,23 @@ REPO = "alpininsight/example"
 
 
 class FakeAPI(GitHubReleaseAPI):
-    def __init__(self, tag_sha=None, tag_type="commit", release=None, create_tag_code=201, create_release_code=201):
+    def __init__(
+        self,
+        tag_sha=None,
+        tag_type="commit",
+        release=None,
+        create_tag_code=201,
+        create_release_code=201,
+        race_tag_sha=None,
+        race_release=None,
+    ):
         self.tag_sha = tag_sha
         self.tag_type = tag_type
         self.release = dict(release) if release else None
         self.create_tag_code = create_tag_code
         self.create_release_code = create_release_code
+        self.race_tag_sha = race_tag_sha
+        self.race_release = dict(race_release) if race_release else None
         self.writes = []
         self.annotated = {}
 
@@ -39,19 +50,20 @@ class FakeAPI(GitHubReleaseAPI):
                 return 404, {"message": "Not Found"}
             return 200, self.release
         if method == "POST" and path == "git/refs":
-            if self.create_tag_code in (201, 409, 422) and self.create_tag_code == 201:
-                self.tag_sha = payload["sha"]
+            if self.create_tag_code in (201, 409, 422):
+                self.tag_sha = self.race_tag_sha or payload["sha"]
                 self.tag_type = "commit"
             return self.create_tag_code, {}
         if method == "POST" and path == "releases":
-            if self.create_release_code == 201:
-                self.release = {
+            if self.create_release_code in (201, 409, 422):
+                self.release = self.race_release or {
                     "id": 7,
                     "tag_name": payload["tag_name"],
                     "draft": False,
                     "prerelease": payload["prerelease"],
                     "published_at": "2026-11-14T13:00:00Z",
                 }
+            if self.create_release_code == 201:
                 return 201, self.release
             return self.create_release_code, {}
         raise AssertionError(f"unexpected {method} {path}")
@@ -167,6 +179,67 @@ class CreateReleaseTests(unittest.TestCase):
         api.release = {"id": 3, "tag_name": "v2.0.0", "draft": False, "prerelease": False, "published_at": "2026-11-01T00:00:00Z"}
         released = publish(api, REPO, SOURCE, "v2.0.0", "v2.0.0", True, False)
         self.assertFalse(released)
+
+    def test_dry_run_accepts_matching_existing_release(self):
+        api = FakeAPI(
+            tag_sha=SOURCE,
+            release={"id": 3, "tag_name": "v2.0.0", "draft": False, "prerelease": False, "published_at": "2026-11-01T00:00:00Z"},
+        )
+        result = plan_release("stable", "2.0.0", repository=REPO, source=SOURCE, create=False, api=api)
+        self.assertFalse(result["released"])
+        self.assertEqual(api.writes, [])
+
+    def test_dry_run_rejects_draft_existing_release(self):
+        api = FakeAPI(
+            tag_sha=SOURCE,
+            release={"id": 3, "tag_name": "v2.0.0", "draft": True, "prerelease": False, "published_at": None},
+        )
+        with self.assertRaisesRegex(ReleaseError, "identity or state is invalid"):
+            plan_release("stable", "2.0.0", repository=REPO, source=SOURCE, create=False, api=api)
+        self.assertEqual(api.writes, [])
+
+    def test_dry_run_rejects_release_without_tag(self):
+        api = FakeAPI(
+            release={"id": 3, "tag_name": "v2.0.0", "draft": False, "prerelease": False, "published_at": "2026-11-01T00:00:00Z"},
+        )
+        with self.assertRaisesRegex(ReleaseError, "no source tag"):
+            plan_release("stable", "2.0.0", repository=REPO, source=SOURCE, create=False, api=api)
+
+    def test_tag_post_422_reuses_matching_source(self):
+        api = FakeAPI(create_tag_code=422)
+        result = plan_release(
+            "stable", "2.0.0", repository=REPO, source=SOURCE, create=True,
+            event_name="workflow_dispatch", require_main=False, api=api,
+        )
+        self.assertTrue(result["released"])
+        self.assertEqual(api.writes[0][0], "POST")
+        self.assertEqual(api.writes[0][1], "git/refs")
+
+    def test_release_post_422_reuses_matching_release(self):
+        api = FakeAPI(tag_sha=SOURCE, create_release_code=422)
+        result = plan_release(
+            "stable", "2.0.0", repository=REPO, source=SOURCE, create=True,
+            event_name="workflow_dispatch", require_main=False, api=api,
+        )
+        self.assertFalse(result["released"])
+        self.assertEqual([item[1] for item in api.writes], ["releases"])
+
+    def test_tag_and_release_post_422_reuses_both(self):
+        api = FakeAPI(create_tag_code=422, create_release_code=422)
+        result = plan_release(
+            "stable", "2.0.0", repository=REPO, source=SOURCE, create=True,
+            event_name="workflow_dispatch", require_main=False, api=api,
+        )
+        self.assertFalse(result["released"])
+        self.assertEqual([item[1] for item in api.writes], ["git/refs", "releases"])
+
+    def test_tag_post_422_wrong_sha_fails_closed(self):
+        api = FakeAPI(create_tag_code=422, race_tag_sha=OTHER)
+        with self.assertRaisesRegex(ReleaseError, "another source commit"):
+            plan_release(
+                "stable", "2.0.0", repository=REPO, source=SOURCE, create=True,
+                event_name="workflow_dispatch", require_main=False, api=api,
+            )
 
 
 if __name__ == "__main__":
