@@ -1,0 +1,18 @@
+name: Python quality
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions: {}
+
+jobs:
+  quality:
+    permissions:
+      contents: read
+    # Preparation placeholder: replace the revision with an independently
+    # reviewed public quality commit before adoption.
+    uses: alpininsight/.github/.github/workflows/python-quality.yml@0000000000000000000000000000000000000000
+    with:
+      python_versions: '["3.12", "3.13", "3.14"]'

@@ -1,0 +1,154 @@
+name: Public repository policy
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/repository-policy.yml
+      - scripts/repository_policy.py
+      - scripts/test_repository_policy.py
+      - docs/public-ci-and-release-reusables.md
+  workflow_call:
+    inputs:
+      main_branch:
+        description: Release branch that may only receive pull requests from develop.
+        type: string
+        default: main
+      develop_branch:
+        description: Integration branch for ordinary development work.
+        type: string
+        default: develop
+      enforce_develop_source_branch_prefixes:
+        description: Require same-repository heads into develop to use an approved prefix.
+        type: boolean
+        default: true
+      develop_source_branch_prefix_regex:
+        description: Bash-compatible regex for approved same-repository heads into develop.
+        type: string
+        default: '^(build|chore|ci|dependabot|docs|feat|feature|fix|perf|refactor|renovate|revert|style|test)/.+$'
+      allow_develop_history_reconciliation:
+        description: Allow a narrowly named same-repository main-history reconciliation pull request into develop.
+        type: boolean
+        default: false
+      develop_history_reconciliation_head_regex:
+        description: Regex for an allowed develop history reconciliation head branch.
+        type: string
+        default: '^chore/sync-main-into-develop-[0-9]{8}$'
+      require_conventional_title:
+        description: Require pull request titles to follow Conventional Commits.
+        type: boolean
+        default: true
+      require_conventional_commits:
+        description: Require pull request commit headlines to follow Conventional Commits.
+        type: boolean
+        default: true
+      allow_main_realignment_pr:
+        description: Allow same-repository maintenance pull requests that repair main/develop ancestry.
+        type: boolean
+        default: false
+      main_realignment_head_regex:
+        description: Regex for allowed main realignment head branches.
+        type: string
+        default: '^chore/realign-main-with-.+$'
+      allow_main_bot_pr:
+        description: Allow generated same-repository pull requests into main from one named author whose complete head branch matches main_bot_head_regex.
+        type: boolean
+        default: false
+      main_bot_author:
+        description: Exact pull request author login admitted by allow_main_bot_pr.
+        type: string
+        default: ''
+      main_bot_head_regex:
+        description: Regex that the complete head branch of an admitted bot pull request into main must match.
+        type: string
+        default: ''
+      policy_revision:
+        description: Same reviewed full commit SHA used to pin this reusable workflow.
+        type: string
+        required: true
+      policy_sha256:
+        description: SHA256 of scripts/repository_policy.py at that revision.
+        type: string
+        required: true
+
+permissions: {}
+
+jobs:
+  self-test:
+    name: Test public repository policy
+    if: github.event_name == 'pull_request' && !contains(toJSON(inputs), '"main_branch"')
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout the PR test source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Run the repository policy tests
+        run: python3 -B -m unittest discover -s scripts -p test_repository_policy.py -v
+
+  policy:
+    name: Repository Policy
+    if: contains(toJSON(inputs), '"main_branch"')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Fetch the pinned public policy script
+        env:
+          POLICY_REVISION: ${{ inputs.policy_revision }}
+          POLICY_SHA256: ${{ inputs.policy_sha256 }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import hashlib, os, re, sys, tempfile, urllib.request
+          from pathlib import Path
+          revision = os.environ['POLICY_REVISION']
+          digest = os.environ['POLICY_SHA256']
+          if re.fullmatch(r'[0-9a-f]{40}', revision) is None or re.fullmatch(r'[0-9a-f]{64}', digest) is None:
+              raise SystemExit('Policy revision and digest must be immutable lowercase hashes')
+          url = f'https://raw.githubusercontent.com/alpininsight/.github/{revision}/scripts/repository_policy.py'
+          with urllib.request.urlopen(url, timeout=15) as response:
+              if not response.url.startswith('https://raw.githubusercontent.com/'):
+                  raise SystemExit('Unexpected public policy redirect')
+              code = response.read(262145)
+          if len(code) > 262144 or hashlib.sha256(code).hexdigest() != digest:
+              raise SystemExit('Public policy content does not match its reviewed digest')
+          directory = Path(os.environ['RUNNER_TEMP']) / 'public-policy'
+          directory.mkdir(parents=True, exist_ok=True)
+          path = directory / 'repository_policy.py'
+          path.write_bytes(code)
+          with Path(os.environ['GITHUB_ENV']).open('a', encoding='utf-8') as env:
+              env.write(f'POLICY_SCRIPT={path}\n')
+          PY
+      - name: Validate repository policy
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+          MERGE_GROUP_BASE_REF: ${{ github.event.merge_group.base_ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          BASE_REPOSITORY: ${{ github.event.pull_request.base.repo.full_name }}
+          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          MAIN_BRANCH: ${{ inputs.main_branch }}
+          DEVELOP_BRANCH: ${{ inputs.develop_branch }}
+          ENFORCE_DEVELOP_SOURCE_BRANCH_PREFIXES: ${{ inputs.enforce_develop_source_branch_prefixes }}
+          DEVELOP_SOURCE_BRANCH_PREFIX_REGEX: ${{ inputs.develop_source_branch_prefix_regex }}
+          ALLOW_DEVELOP_HISTORY_RECONCILIATION: ${{ inputs.allow_develop_history_reconciliation }}
+          DEVELOP_HISTORY_RECONCILIATION_HEAD_REGEX: ${{ inputs.develop_history_reconciliation_head_regex }}
+          REQUIRE_CONVENTIONAL_TITLE: ${{ inputs.require_conventional_title }}
+          REQUIRE_CONVENTIONAL_COMMITS: ${{ inputs.require_conventional_commits }}
+          ALLOW_MAIN_REALIGNMENT_PR: ${{ inputs.allow_main_realignment_pr }}
+          MAIN_REALIGNMENT_HEAD_REGEX: ${{ inputs.main_realignment_head_regex }}
+          ALLOW_MAIN_BOT_PR: ${{ inputs.allow_main_bot_pr }}
+          MAIN_BOT_AUTHOR: ${{ inputs.main_bot_author }}
+          MAIN_BOT_HEAD_REGEX: ${{ inputs.main_bot_head_regex }}
+        run: python3 -B "$POLICY_SCRIPT"

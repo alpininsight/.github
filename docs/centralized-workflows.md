@@ -4,15 +4,18 @@ Public `.github/workflow-templates/*` files are Alpin Insight starter
 templates. They are meant to be copied into organization repositories and keep
 their visible Alpin Insight source header after copy.
 
-Canonical workflow logic does not live in this public repository. It lives in
-`alpininsight/.github-private`, and the copied starter files call the private
-reusable backends from `@main`.
+Branded starter templates in `.github/workflow-templates/` are meant for
+organization repositories that can call the private workflow catalog in
+`alpininsight/.github-private`. Public product repositories that cannot call
+that catalog should use the public reusable workflows documented in
+`docs/public-ci-and-release-reusables.md` instead of copying workflow
+implementations into the product repository.
 
 ## What this public repo provides
 
-- branded starter templates for new Alpin Insight repositories
+- branded starter templates for organization repositories that call the private catalog
+- public reusable workflows for repository policy, Python quality (including Gitleaks), release identity, and stable GitHub Release creation
 - public-safe prerequisites and adoption notes
-- no active central workflow implementation
 - no internal runbooks, secret inventories, or operational automation
 
 ## Template catalog
@@ -28,6 +31,17 @@ reusable backends from `@main`.
 | `pr-title-lint.yml` | `reusable-pr-title.yml@main` |
 | `release.yml` | `reusable-release.yml@main` |
 | `scheduled-pre-commit-update.yml` | `scheduled-pre-commit-update-reusable.yml@main` |
+
+## Public reusable catalog
+
+| Reusable workflow | Purpose |
+|---|---|
+| `repository-policy.yml` | Branch routing and Conventional Commit policy |
+| `python-quality.yml` | Python quality matrix, optional Gitleaks, and a quality gate |
+| `release-version-contract.yml` | Credential-free RC and stable version identity |
+| `create-release.yml` | Publish or reuse a GitHub Release on an exact source SHA |
+
+See `docs/public-ci-and-release-reusables.md` and `docs/insight-ui-release-contract.md`.
 
 ## Public usage guidance
 
@@ -60,5 +74,6 @@ Keychain-backed operator workflows, or OpenBao-backed secret provisioning.
 
 ## Internal details
 
-Implementation details, reusable workflow behavior, internal release policy, and
-operational guidance belong in `.github-private`, not in this public repository.
+Private catalog behavior, internal release policy, and operational guidance
+belong in `.github-private`, not in this public repository. Public reusable
+behavior is documented in this repository only.

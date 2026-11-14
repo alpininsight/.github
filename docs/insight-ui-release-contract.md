@@ -59,6 +59,10 @@ publication must reference an accepted RC with matching source tree, lockfile an
 build inputs; changing the version metadata requires a new verified build. The
 public contract alone does not authorize or perform a release.
 
+The companion reusable `create-release.yml` uses this same identity script and
+pin scheme when a caller is ready to publish or reuse a GitHub Release on an
+exact source commit. See `docs/public-ci-and-release-reusables.md`.
+
 Run the pure version tests without credentials or network:
 
 ```sh

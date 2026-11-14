@@ -1,0 +1,231 @@
+name: Public create release
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/create-release.yml
+      - scripts/create_github_release.py
+      - scripts/test_create_github_release.py
+      - scripts/release_version_contract.py
+      - docs/public-ci-and-release-reusables.md
+      - docs/insight-ui-release-contract.md
+  workflow_call:
+    inputs:
+      release_kind:
+        type: string
+        required: true
+      target_version:
+        type: string
+        required: true
+      rc_number:
+        type: string
+        default: '1'
+      contract_revision:
+        description: Same reviewed full commit SHA used to pin the public version contract script.
+        type: string
+        required: true
+      contract_sha256:
+        description: SHA256 of scripts/release_version_contract.py at that revision.
+        type: string
+        required: true
+      release_sha256:
+        description: SHA256 of scripts/create_github_release.py at the same revision.
+        type: string
+        required: true
+      checkout_ref:
+        description: Immutable 40-character source SHA. Required when create is true.
+        type: string
+        default: ''
+      create:
+        description: When true, create or reuse the GitHub Release. When false, only calculate and validate identity.
+        type: boolean
+        default: false
+      generate_release_notes:
+        description: Request GitHub-generated release notes when a new release is created.
+        type: boolean
+        default: true
+      require_main:
+        description: Require the source SHA to be the current commit of refs/heads/main before creating a release.
+        type: boolean
+        default: true
+    outputs:
+      release_kind:
+        value: ${{ jobs.identity.outputs.release_kind }}
+      base_version:
+        value: ${{ jobs.identity.outputs.base_version }}
+      semver:
+        value: ${{ jobs.identity.outputs.semver }}
+      python_version:
+        value: ${{ jobs.identity.outputs.python_version }}
+      tag:
+        value: ${{ jobs.identity.outputs.tag }}
+      is_prerelease:
+        value: ${{ jobs.identity.outputs.is_prerelease }}
+      source_sha:
+        value: ${{ jobs.publish.outputs.source_sha || jobs.identity.outputs.source_sha }}
+      released:
+        value: ${{ jobs.publish.outputs.released || 'false' }}
+
+permissions: {}
+
+jobs:
+  self-test:
+    name: Test public release creation
+    if: github.event_name == 'pull_request' && !contains(toJSON(inputs), '"target_version"')
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout the PR test source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Run the release creation tests
+        run: python3 -B -m unittest discover -s scripts -p test_create_github_release.py -v
+
+  identity:
+    name: Calculate release identity
+    if: contains(toJSON(inputs), '"target_version"')
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions: {}
+    outputs:
+      release_kind: ${{ steps.plan.outputs.release_kind }}
+      base_version: ${{ steps.plan.outputs.base_version }}
+      semver: ${{ steps.plan.outputs.semver }}
+      python_version: ${{ steps.plan.outputs.python_version }}
+      tag: ${{ steps.plan.outputs.tag }}
+      is_prerelease: ${{ steps.plan.outputs.is_prerelease }}
+      source_sha: ${{ steps.plan.outputs.source_sha }}
+      released: ${{ steps.plan.outputs.released }}
+    steps:
+      - name: Fetch the pinned public release scripts and calculate identity
+        id: plan
+        env:
+          RELEASE_KIND: ${{ inputs.release_kind }}
+          TARGET_VERSION: ${{ inputs.target_version }}
+          RC_NUMBER: ${{ inputs.rc_number }}
+          CONTRACT_REVISION: ${{ inputs.contract_revision }}
+          CONTRACT_SHA256: ${{ inputs.contract_sha256 }}
+          RELEASE_SHA256: ${{ inputs.release_sha256 }}
+          RELEASE_REPOSITORY: ${{ github.repository }}
+          SOURCE_REVISION: ${{ inputs.checkout_ref }}
+          CREATE: 'false'
+          REQUIRE_MAIN: 'false'
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import hashlib, os, re, subprocess, sys, tempfile, urllib.request
+          from pathlib import Path
+
+          revision = os.environ['CONTRACT_REVISION']
+          expected = {
+              'scripts/release_version_contract.py': os.environ['CONTRACT_SHA256'],
+              'scripts/create_github_release.py': os.environ['RELEASE_SHA256'],
+          }
+          if re.fullmatch(r'[0-9a-f]{40}', revision) is None or any(
+              re.fullmatch(r'[0-9a-f]{64}', digest) is None for digest in expected.values()
+          ):
+              raise SystemExit('Contract revision and digests must be immutable lowercase hashes')
+
+          def fetch(path, digest):
+              url = f'https://raw.githubusercontent.com/alpininsight/.github/{revision}/{path}'
+              with urllib.request.urlopen(url, timeout=15) as response:
+                  if not response.url.startswith('https://raw.githubusercontent.com/'):
+                      raise SystemExit('Unexpected public contract redirect')
+                  code = response.read(262145)
+              if len(code) > 262144 or hashlib.sha256(code).hexdigest() != digest:
+                  raise SystemExit(f'Public contract content does not match its reviewed digest: {path}')
+              return code
+
+          directory = Path(tempfile.mkdtemp(dir=os.environ['RUNNER_TEMP']))
+          for path, digest in expected.items():
+              target = directory / Path(path).name
+              target.write_bytes(fetch(path, digest))
+          env = os.environ.copy()
+          env['PYTHONPATH'] = str(directory)
+          subprocess.run([sys.executable, '-B', str(directory / 'create_github_release.py')], check=True, env=env)
+          PY
+
+  publish:
+    name: Publish GitHub Release
+    needs: identity
+    if: contains(toJSON(inputs), '"target_version"') && inputs.create
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    outputs:
+      source_sha: ${{ steps.publish.outputs.source_sha }}
+      released: ${{ steps.publish.outputs.released }}
+    steps:
+      - name: Checkout the exact source commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.checkout_ref }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Fetch the pinned public release scripts and publish
+        id: publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_KIND: ${{ inputs.release_kind }}
+          TARGET_VERSION: ${{ inputs.target_version }}
+          RC_NUMBER: ${{ inputs.rc_number }}
+          CONTRACT_REVISION: ${{ inputs.contract_revision }}
+          CONTRACT_SHA256: ${{ inputs.contract_sha256 }}
+          RELEASE_SHA256: ${{ inputs.release_sha256 }}
+          RELEASE_REPOSITORY: ${{ github.repository }}
+          SOURCE_REVISION: ${{ inputs.checkout_ref }}
+          EVENT_NAME: ${{ github.event_name }}
+          CREATE: 'true'
+          GENERATE_NOTES: ${{ inputs.generate_release_notes }}
+          REQUIRE_MAIN: ${{ inputs.require_main }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import hashlib, os, re, subprocess, sys, tempfile, urllib.request
+          from pathlib import Path
+
+          revision = os.environ['CONTRACT_REVISION']
+          expected = {
+              'scripts/release_version_contract.py': os.environ['CONTRACT_SHA256'],
+              'scripts/create_github_release.py': os.environ['RELEASE_SHA256'],
+          }
+          if re.fullmatch(r'[0-9a-f]{40}', revision) is None or any(
+              re.fullmatch(r'[0-9a-f]{64}', digest) is None for digest in expected.values()
+          ):
+              raise SystemExit('Contract revision and digests must be immutable lowercase hashes')
+
+          def fetch(path, digest):
+              url = f'https://raw.githubusercontent.com/alpininsight/.github/{revision}/{path}'
+              with urllib.request.urlopen(url, timeout=15) as response:
+                  if not response.url.startswith('https://raw.githubusercontent.com/'):
+                      raise SystemExit('Unexpected public contract redirect')
+                  code = response.read(262145)
+              if len(code) > 262144 or hashlib.sha256(code).hexdigest() != digest:
+                  raise SystemExit(f'Public contract content does not match its reviewed digest: {path}')
+              return code
+
+          directory = Path(tempfile.mkdtemp(dir=os.environ['RUNNER_TEMP']))
+          for path, digest in expected.items():
+              (directory / Path(path).name).write_bytes(fetch(path, digest))
+
+          source = os.environ['SOURCE_REVISION']
+          if re.fullmatch(r'[0-9a-f]{40}', source) is None:
+              raise SystemExit('checkout_ref must be a 40-character lowercase commit SHA')
+          head = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          os.environ['CHECKOUT_SHA'] = head
+          if os.environ.get('REQUIRE_MAIN') == 'true':
+              repository = os.environ['RELEASE_REPOSITORY']
+              result = subprocess.run(
+                  ['gh', 'api', f'repos/{repository}/branches/main', '--jq', '.commit.sha'],
+                  check=True, capture_output=True, text=True, timeout=45,
+              )
+              os.environ['MAIN_SHA'] = result.stdout.strip()
+          env = os.environ.copy()
+          env['PYTHONPATH'] = str(directory)
+          subprocess.run([sys.executable, '-B', str(directory / 'create_github_release.py')], check=True, env=env)
+          PY

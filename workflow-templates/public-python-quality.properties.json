@@ -1,0 +1,5 @@
+{
+  "name": "Public Python quality",
+  "description": "Run a Python quality matrix and Gitleaks through a public reusable workflow.",
+  "categories": ["Python"]
+}

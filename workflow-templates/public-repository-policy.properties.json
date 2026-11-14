@@ -1,0 +1,5 @@
+{
+  "name": "Public repository policy",
+  "description": "Enforce develop/main routing and Conventional Commits through a public reusable workflow.",
+  "categories": ["Automation"]
+}

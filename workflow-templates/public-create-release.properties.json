@@ -1,0 +1,5 @@
+{
+  "name": "Public GitHub Release creation",
+  "description": "Calculate a public release identity and optionally publish a GitHub Release on an exact source commit.",
+  "categories": ["Python"]
+}
