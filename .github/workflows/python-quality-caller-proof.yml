@@ -14,7 +14,7 @@ jobs:
     name: quality
     permissions:
       contents: read
-    uses: alpininsight/.github/.github/workflows/python-quality.yml@29c6df90bb71a250cb62bfcae7f47b49dd2f6bbc
+    uses: alpininsight/.github/.github/workflows/python-quality.yml@4170649b619df05621134ed6c190f79f491246f4
     with:
       python_versions: '["3.14"]'
       run_uv_sync: false
