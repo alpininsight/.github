@@ -1,0 +1,26 @@
+name: Public Python quality caller proof
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+    paths:
+      - .github/workflows/python-quality-caller-proof.yml
+
+permissions: {}
+
+jobs:
+  quality:
+    name: quality
+    permissions:
+      contents: read
+    uses: alpininsight/.github/.github/workflows/python-quality.yml@29c6df90bb71a250cb62bfcae7f47b49dd2f6bbc
+    with:
+      python_versions: '["3.14"]'
+      run_uv_sync: false
+      run_pre_commit: false
+      run_gitleaks: true
+      lint_command: ''
+      format_command: ''
+      django_check_command: ''
+      test_command: python3 -B -m unittest discover -s scripts -p 'test_*.py' -v
