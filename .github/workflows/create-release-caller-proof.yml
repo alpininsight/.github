@@ -13,7 +13,7 @@ jobs:
   rc-identity:
     name: Calculate RC1 identity without publication
     permissions:
-      contents: read
+      contents: write
     uses: alpininsight/.github/.github/workflows/create-release.yml@29c6df90bb71a250cb62bfcae7f47b49dd2f6bbc
     with:
       release_kind: rc
@@ -27,7 +27,7 @@ jobs:
   stable-identity:
     name: Calculate stable identity without publication
     permissions:
-      contents: read
+      contents: write
     uses: alpininsight/.github/.github/workflows/create-release.yml@29c6df90bb71a250cb62bfcae7f47b49dd2f6bbc
     with:
       release_kind: stable

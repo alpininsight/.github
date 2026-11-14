@@ -92,10 +92,12 @@ Optional inputs: `rc_number` (default `1`), `checkout_ref`, `create`
 Outputs: `release_kind`, `base_version`, `semver`, `python_version`, `tag`,
 `is_prerelease`, `source_sha`, `released`.
 
-When `create` is true, the calling job must grant `contents: write`,
-`checkout_ref` must be the 40-character lowercase source SHA, and that SHA
-must be the current commit of `refs/heads/main` unless `require_main` is
-false. Creation is refused on `pull_request` and `merge_group` events.
+The calling job must grant `contents: write`, because the reusable declares
+a publication job with that permission. `create: false` still does not write
+a tag or release. When `create` is true, `checkout_ref` must be the
+40-character lowercase source SHA, and that SHA must be the current commit
+of `refs/heads/main` unless `require_main` is false. Creation is refused on
+`pull_request` and `merge_group` events.
 
 A stable call (`release_kind: stable`) publishes a GitHub Release whose tag
 is `v<version>`, with `draft: false` and `prerelease: false`, on exactly
