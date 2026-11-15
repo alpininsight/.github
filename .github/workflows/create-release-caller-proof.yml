@@ -14,14 +14,14 @@ jobs:
     name: Calculate RC1 identity without publication
     permissions:
       contents: write
-    uses: alpininsight/.github/.github/workflows/create-release.yml@79ae576aa0dd865d6cf33402c63929fd4021dd2a
+    uses: alpininsight/.github/.github/workflows/create-release.yml@1b23a2c1b7152f00d4f819b642a95be218faeb2e
     with:
       release_kind: rc
       target_version: '2.0.0'
       rc_number: '1'
       checkout_ref: ${{ github.sha }}
       create: false
-      contract_revision: '79ae576aa0dd865d6cf33402c63929fd4021dd2a'
+      contract_revision: '1b23a2c1b7152f00d4f819b642a95be218faeb2e'
       contract_sha256: '965f1bbf6a488b332462b71b462393510ce0b5cbea3470bc28de050acbea780a'
       release_sha256: 'a185829727f9f09fedf11aff3641106e1917beaf397944bee9b3abb3eafc56b4'
 
@@ -29,13 +29,13 @@ jobs:
     name: Calculate stable identity without publication
     permissions:
       contents: write
-    uses: alpininsight/.github/.github/workflows/create-release.yml@79ae576aa0dd865d6cf33402c63929fd4021dd2a
+    uses: alpininsight/.github/.github/workflows/create-release.yml@1b23a2c1b7152f00d4f819b642a95be218faeb2e
     with:
       release_kind: stable
       target_version: '2.0.0'
       checkout_ref: ${{ github.sha }}
       create: false
-      contract_revision: '79ae576aa0dd865d6cf33402c63929fd4021dd2a'
+      contract_revision: '1b23a2c1b7152f00d4f819b642a95be218faeb2e'
       contract_sha256: '965f1bbf6a488b332462b71b462393510ce0b5cbea3470bc28de050acbea780a'
       release_sha256: 'a185829727f9f09fedf11aff3641106e1917beaf397944bee9b3abb3eafc56b4'
 
