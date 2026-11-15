@@ -41,7 +41,7 @@ source of record.
 | `pr-branch-guard.yml` | Thin caller for branch-routing policy only | -- |
 | `pr-title-lint.yml` | Thin caller for Alpin Insight PR title validation | -- |
 | `release.yml` | Thin caller for the Alpin Insight GitVersion release backend | `GitVersion.yml` |
-| `scheduled-pre-commit-update.yml` | Thin caller for automated pre-commit updates | `.pre-commit-config.yaml`, `INSIGHT_TOKEN` available to the repo |
+| `scheduled-pre-commit-update.yml` | Thin caller for automated pre-commit updates | Intentionally maintained, tracked, non-empty regular `.pre-commit-config.yaml`; `INSIGHT_TOKEN` available to the repo |
 
 ### Adoption checklist (per repo)
 
@@ -50,6 +50,15 @@ source of record.
 - [ ] Replace placeholder inputs such as `public_base_url`
 - [ ] Ensure any referenced GitHub Actions secrets are available to the repo, preferably via org-wide secrets
 - [ ] Prefer extending `.github-private` over forking copied workflow logic
+
+The scheduled pre-commit updater is only for repositories intentionally
+maintaining a tracked, non-empty regular `.pre-commit-config.yaml`. If that
+prerequisite is absent, do not install the copied updater. Remove an already
+copied unused caller rather than inventing hooks merely to satisfy it.
+The default quality workflow's
+`run_pre_commit: false` setting does not disable the updater's schedule. See the
+[central updater guide](https://github.com/alpininsight/.github-private/blob/develop/docs/ci-workflows/scheduled-pre-commit-update-reusable.md)
+and [issue #717](https://github.com/alpininsight/.github-private/issues/717).
 
 ## Notes
 
