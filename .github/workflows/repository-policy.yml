@@ -7,6 +7,7 @@ on:
       - .github/workflows/repository-policy.yml
       - scripts/repository_policy.py
       - scripts/test_repository_policy.py
+      - scripts/test_workflow_python_isolation.py
       - docs/public-ci-and-release-reusables.md
   workflow_call:
     inputs:
@@ -87,7 +88,9 @@ jobs:
         with:
           persist-credentials: false
       - name: Run the repository policy tests
-        run: python3 -B -m unittest discover -s scripts -p test_repository_policy.py -v
+        run: |
+          python3 -I -B -m unittest discover -s scripts -p test_repository_policy.py -v
+          python3 -I -B -m unittest discover -s scripts -p test_workflow_python_isolation.py -v
 
   policy:
     name: Repository Policy
@@ -104,7 +107,7 @@ jobs:
           POLICY_SHA256: ${{ inputs.policy_sha256 }}
         shell: bash
         run: |
-          python3 - <<'PY'
+          python3 -I - <<'PY'
           import hashlib, os, re, sys, tempfile, urllib.request
           from pathlib import Path
           revision = os.environ['POLICY_REVISION']
@@ -151,4 +154,4 @@ jobs:
           ALLOW_MAIN_BOT_PR: ${{ inputs.allow_main_bot_pr }}
           MAIN_BOT_AUTHOR: ${{ inputs.main_bot_author }}
           MAIN_BOT_HEAD_REGEX: ${{ inputs.main_bot_head_regex }}
-        run: python3 -B "$POLICY_SCRIPT"
+        run: python3 -I -B "$POLICY_SCRIPT"

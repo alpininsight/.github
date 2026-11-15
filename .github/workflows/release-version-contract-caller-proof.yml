@@ -60,7 +60,7 @@ jobs:
           STABLE_IS_PRERELEASE: ${{ needs.stable-version.outputs.is_prerelease }}
         shell: bash
         run: |
-          python3 - <<'PY'
+          python3 -I - <<'PY'
           import os
 
           expected = {"RC_RESULT":"success","STABLE_RESULT":"success","RC_RELEASE_KIND":"rc","STABLE_RELEASE_KIND":"stable","RC_BASE_VERSION":"2.0.0","STABLE_BASE_VERSION":"2.0.0","RC_SEMVER":"2.0.0-rc.1","STABLE_SEMVER":"2.0.0","RC_PYTHON_VERSION":"2.0.0rc1","STABLE_PYTHON_VERSION":"2.0.0","RC_TAG":"v2.0.0-rc.1","STABLE_TAG":"v2.0.0","RC_IS_PRERELEASE":"true","STABLE_IS_PRERELEASE":"false"}

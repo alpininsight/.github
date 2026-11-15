@@ -66,5 +66,5 @@ exact source commit. See `docs/public-ci-and-release-reusables.md`.
 Run the pure version tests without credentials or network:
 
 ```sh
-python3 -B -m unittest discover -s scripts -p test_release_version_contract.py -v
+python3 -I -B -m unittest discover -s scripts -p test_release_version_contract.py -v
 ```

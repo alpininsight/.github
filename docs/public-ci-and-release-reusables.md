@@ -39,7 +39,7 @@ expected to satisfy the product default. Policy changes are proven by the
 offline unit tests and the pull-request self-test in this workflow.
 
 ```sh
-python3 -B -m unittest discover -s scripts -p test_repository_policy.py -v
+python3 -I -B -m unittest discover -s scripts -p test_repository_policy.py -v
 ```
 
 ## Python quality and Gitleaks
@@ -78,9 +78,12 @@ was requested and did not succeed.
 `alpininsight/.github/.github/workflows/create-release.yml`
 
 This reusable builds on the public [release identity
-contract](insight-ui-release-contract.md). It fetches
+contract](insight-ui-release-contract.md). It checks out
 `scripts/release_version_contract.py` and `scripts/create_github_release.py`
-from the same reviewed revision and verifies both digests before execution.
+from `alpininsight/.github` at the same reviewed revision, verifies both
+digests, and starts Python with `-I` so a module in the source tree cannot
+shadow the standard library. The source commit is checked out into a
+subdirectory, and the interpreter is started from the runner temp directory.
 
 Required inputs: `release_kind`, `target_version`, `contract_revision`,
 `contract_sha256`, `release_sha256`.
@@ -116,7 +119,7 @@ Callers supply `target_version` themselves. This reusable does not calculate
 a version from repository history.
 
 ```sh
-python3 -B -m unittest discover -s scripts -p test_create_github_release.py -v
+python3 -I -B -m unittest discover -s scripts -p test_create_github_release.py -v
 ```
 
 A later package publisher can require that this published stable release

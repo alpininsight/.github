@@ -23,4 +23,4 @@ jobs:
       lint_command: ''
       format_command: ''
       django_check_command: ''
-      test_command: python3 -B -m unittest discover -s scripts -p 'test_*.py' -v
+      test_command: python3 -I -B -m unittest discover -s scripts -p 'test_*.py' -v

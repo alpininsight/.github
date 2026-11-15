@@ -8,6 +8,7 @@ on:
       - docs/public-ci-and-release-reusables.md
       - scripts/test_quality_command_runner.py
       - scripts/test_pre_commit_gitleaks_filter.py
+      - scripts/test_workflow_python_isolation.py
   workflow_call:
     inputs:
       python_versions:
@@ -88,7 +89,7 @@ jobs:
           persist-credentials: false
       - name: Confirm the quality workflow is present
         run: |
-          python3 - <<'PY'
+          python3 -I - <<'PY'
           from pathlib import Path
           text = Path('.github/workflows/python-quality.yml').read_text()
           assert 'workflow_call:' in text
@@ -96,8 +97,9 @@ jobs:
           PY
       - name: Run the quality helper tests
         run: |
-          python3 -B -m unittest discover -s scripts -p test_quality_command_runner.py -v
-          python3 -B -m unittest discover -s scripts -p test_pre_commit_gitleaks_filter.py -v
+          python3 -I -B -m unittest discover -s scripts -p test_quality_command_runner.py -v
+          python3 -I -B -m unittest discover -s scripts -p test_pre_commit_gitleaks_filter.py -v
+          python3 -I -B -m unittest discover -s scripts -p test_workflow_python_isolation.py -v
 
   quality:
     name: Quality (${{ matrix.python_version }})

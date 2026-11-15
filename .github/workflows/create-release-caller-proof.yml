@@ -67,7 +67,7 @@ jobs:
           STABLE_RELEASED: ${{ needs.stable-identity.outputs.released }}
         shell: bash
         run: |
-          python3 - <<'PY'
+          python3 -I - <<'PY'
           import os
 
           expected = {

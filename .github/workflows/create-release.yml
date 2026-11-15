@@ -7,6 +7,7 @@ on:
       - .github/workflows/create-release.yml
       - scripts/create_github_release.py
       - scripts/test_create_github_release.py
+      - scripts/test_workflow_python_isolation.py
       - scripts/release_version_contract.py
       - docs/public-ci-and-release-reusables.md
       - docs/insight-ui-release-contract.md
@@ -83,7 +84,9 @@ jobs:
         with:
           persist-credentials: false
       - name: Run the release creation tests
-        run: python3 -B -m unittest discover -s scripts -p test_create_github_release.py -v
+        run: |
+          python3 -I -B -m unittest discover -s scripts -p test_create_github_release.py -v
+          python3 -I -B -m unittest discover -s scripts -p test_workflow_python_isolation.py -v
 
   identity:
     name: Calculate release identity
@@ -102,7 +105,14 @@ jobs:
       source_sha: ${{ steps.plan.outputs.source_sha }}
       released: ${{ steps.plan.outputs.released }}
     steps:
-      - name: Fetch the pinned public release scripts and calculate identity
+      - name: Checkout the pinned public release scripts
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: alpininsight/.github
+          ref: ${{ inputs.contract_revision }}
+          path: public-ci
+          persist-credentials: false
+      - name: Verify the pinned public release scripts and calculate identity
         id: plan
         env:
           RELEASE_KIND: ${{ inputs.release_kind }}
@@ -119,8 +129,9 @@ jobs:
           VALIDATE_EXISTING: 'true'
         shell: bash
         run: |
-          python3 - <<'PY'
-          import hashlib, os, re, subprocess, sys, tempfile, urllib.request
+          cd "$RUNNER_TEMP"
+          python3 -I - <<'PY'
+          import hashlib, os, re, subprocess, sys, tempfile
           from pathlib import Path
 
           revision = os.environ['CONTRACT_REVISION']
@@ -133,23 +144,18 @@ jobs:
           ):
               raise SystemExit('Contract revision and digests must be immutable lowercase hashes')
 
-          def fetch(path, digest):
-              url = f'https://raw.githubusercontent.com/alpininsight/.github/{revision}/{path}'
-              with urllib.request.urlopen(url, timeout=15) as response:
-                  if not response.url.startswith('https://raw.githubusercontent.com/'):
-                      raise SystemExit('Unexpected public contract redirect')
-                  code = response.read(262145)
-              if len(code) > 262144 or hashlib.sha256(code).hexdigest() != digest:
-                  raise SystemExit(f'Public contract content does not match its reviewed digest: {path}')
-              return code
-
+          workspace = Path(os.environ['GITHUB_WORKSPACE'])
+          catalog = workspace / 'public-ci'
           directory = Path(tempfile.mkdtemp(dir=os.environ['RUNNER_TEMP']))
           for path, digest in expected.items():
-              target = directory / Path(path).name
-              target.write_bytes(fetch(path, digest))
-          env = os.environ.copy()
-          env['PYTHONPATH'] = str(directory)
-          subprocess.run([sys.executable, '-B', str(directory / 'create_github_release.py')], check=True, env=env)
+              code = (catalog / path).read_bytes()
+              if len(code) > 262144 or hashlib.sha256(code).hexdigest() != digest:
+                  raise SystemExit(f'Public contract content does not match its reviewed digest: {path}')
+              (directory / Path(path).name).write_bytes(code)
+          subprocess.run(
+              [sys.executable, '-I', '-B', str(directory / 'create_github_release.py')],
+              check=True,
+          )
           PY
 
   publish:
@@ -164,13 +170,21 @@ jobs:
       source_sha: ${{ steps.publish.outputs.source_sha }}
       released: ${{ steps.publish.outputs.released }}
     steps:
+      - name: Checkout the pinned public release scripts
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: alpininsight/.github
+          ref: ${{ inputs.contract_revision }}
+          path: public-ci
+          persist-credentials: false
       - name: Checkout the exact source commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ inputs.checkout_ref }}
+          path: source
           fetch-depth: 0
           persist-credentials: false
-      - name: Fetch the pinned public release scripts and publish
+      - name: Verify the pinned public release scripts and publish
         id: publish
         env:
           GH_TOKEN: ${{ github.token }}
@@ -188,8 +202,9 @@ jobs:
           REQUIRE_MAIN: ${{ inputs.require_main }}
         shell: bash
         run: |
-          python3 - <<'PY'
-          import hashlib, os, re, subprocess, sys, tempfile, urllib.request
+          cd "$RUNNER_TEMP"
+          python3 -I - <<'PY'
+          import hashlib, os, re, subprocess, sys, tempfile
           from pathlib import Path
 
           revision = os.environ['CONTRACT_REVISION']
@@ -202,24 +217,22 @@ jobs:
           ):
               raise SystemExit('Contract revision and digests must be immutable lowercase hashes')
 
-          def fetch(path, digest):
-              url = f'https://raw.githubusercontent.com/alpininsight/.github/{revision}/{path}'
-              with urllib.request.urlopen(url, timeout=15) as response:
-                  if not response.url.startswith('https://raw.githubusercontent.com/'):
-                      raise SystemExit('Unexpected public contract redirect')
-                  code = response.read(262145)
-              if len(code) > 262144 or hashlib.sha256(code).hexdigest() != digest:
-                  raise SystemExit(f'Public contract content does not match its reviewed digest: {path}')
-              return code
-
+          workspace = Path(os.environ['GITHUB_WORKSPACE'])
+          catalog = workspace / 'public-ci'
           directory = Path(tempfile.mkdtemp(dir=os.environ['RUNNER_TEMP']))
           for path, digest in expected.items():
-              (directory / Path(path).name).write_bytes(fetch(path, digest))
+              code = (catalog / path).read_bytes()
+              if len(code) > 262144 or hashlib.sha256(code).hexdigest() != digest:
+                  raise SystemExit(f'Public contract content does not match its reviewed digest: {path}')
+              (directory / Path(path).name).write_bytes(code)
 
           source = os.environ['SOURCE_REVISION']
           if re.fullmatch(r'[0-9a-f]{40}', source) is None:
               raise SystemExit('checkout_ref must be a 40-character lowercase commit SHA')
-          head = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          head = subprocess.check_output(
+              ['git', '-C', str(workspace / 'source'), 'rev-parse', 'HEAD'],
+              text=True,
+          ).strip()
           os.environ['CHECKOUT_SHA'] = head
           if os.environ.get('REQUIRE_MAIN') == 'true':
               repository = os.environ['RELEASE_REPOSITORY']
@@ -228,7 +241,8 @@ jobs:
                   check=True, capture_output=True, text=True, timeout=45,
               )
               os.environ['MAIN_SHA'] = result.stdout.strip()
-          env = os.environ.copy()
-          env['PYTHONPATH'] = str(directory)
-          subprocess.run([sys.executable, '-B', str(directory / 'create_github_release.py')], check=True, env=env)
+          subprocess.run(
+              [sys.executable, '-I', '-B', str(directory / 'create_github_release.py')],
+              check=True,
+          )
           PY
