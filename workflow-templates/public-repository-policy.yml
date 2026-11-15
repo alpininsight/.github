@@ -1,0 +1,20 @@
+name: Check repository policy
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, edited]
+  merge_group:
+
+permissions: {}
+
+jobs:
+  repository-policy:
+    permissions:
+      contents: read
+      pull-requests: read
+    # Preparation placeholder: replace BOTH values with the same independently
+    # reviewed public policy commit and the script SHA256 before adoption.
+    uses: alpininsight/.github/.github/workflows/repository-policy.yml@0000000000000000000000000000000000000000
+    with:
+      policy_revision: '0000000000000000000000000000000000000000'
+      policy_sha256: '0000000000000000000000000000000000000000000000000000000000000000'

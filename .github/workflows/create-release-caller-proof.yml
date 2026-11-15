@@ -1,0 +1,95 @@
+name: Public create release caller proof - dry run
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+    paths:
+      - .github/workflows/create-release-caller-proof.yml
+
+permissions: {}
+
+jobs:
+  rc-identity:
+    name: Calculate RC1 identity without publication
+    permissions:
+      contents: write
+    uses: alpininsight/.github/.github/workflows/create-release.yml@1b23a2c1b7152f00d4f819b642a95be218faeb2e
+    with:
+      release_kind: rc
+      target_version: '2.0.0'
+      rc_number: '1'
+      checkout_ref: ${{ github.sha }}
+      create: false
+      contract_revision: '1b23a2c1b7152f00d4f819b642a95be218faeb2e'
+      contract_sha256: '965f1bbf6a488b332462b71b462393510ce0b5cbea3470bc28de050acbea780a'
+      release_sha256: 'a185829727f9f09fedf11aff3641106e1917beaf397944bee9b3abb3eafc56b4'
+
+  stable-identity:
+    name: Calculate stable identity without publication
+    permissions:
+      contents: write
+    uses: alpininsight/.github/.github/workflows/create-release.yml@1b23a2c1b7152f00d4f819b642a95be218faeb2e
+    with:
+      release_kind: stable
+      target_version: '2.0.0'
+      checkout_ref: ${{ github.sha }}
+      create: false
+      contract_revision: '1b23a2c1b7152f00d4f819b642a95be218faeb2e'
+      contract_sha256: '965f1bbf6a488b332462b71b462393510ce0b5cbea3470bc28de050acbea780a'
+      release_sha256: 'a185829727f9f09fedf11aff3641106e1917beaf397944bee9b3abb3eafc56b4'
+
+  assert-outputs:
+    name: Verify both dry runs and the release identity outputs
+    needs: [rc-identity, stable-identity]
+    if: always()
+    permissions: {}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Assert the exact successful caller contract
+        env:
+          RC_RESULT: ${{ needs.rc-identity.result }}
+          STABLE_RESULT: ${{ needs.stable-identity.result }}
+          RC_RELEASE_KIND: ${{ needs.rc-identity.outputs.release_kind }}
+          STABLE_RELEASE_KIND: ${{ needs.stable-identity.outputs.release_kind }}
+          RC_BASE_VERSION: ${{ needs.rc-identity.outputs.base_version }}
+          STABLE_BASE_VERSION: ${{ needs.stable-identity.outputs.base_version }}
+          RC_SEMVER: ${{ needs.rc-identity.outputs.semver }}
+          STABLE_SEMVER: ${{ needs.stable-identity.outputs.semver }}
+          RC_PYTHON_VERSION: ${{ needs.rc-identity.outputs.python_version }}
+          STABLE_PYTHON_VERSION: ${{ needs.stable-identity.outputs.python_version }}
+          RC_TAG: ${{ needs.rc-identity.outputs.tag }}
+          STABLE_TAG: ${{ needs.stable-identity.outputs.tag }}
+          RC_IS_PRERELEASE: ${{ needs.rc-identity.outputs.is_prerelease }}
+          STABLE_IS_PRERELEASE: ${{ needs.stable-identity.outputs.is_prerelease }}
+          RC_RELEASED: ${{ needs.rc-identity.outputs.released }}
+          STABLE_RELEASED: ${{ needs.stable-identity.outputs.released }}
+        shell: bash
+        run: |
+          python3 -I - <<'PY'
+          import os
+
+          expected = {
+              "RC_RESULT": "success",
+              "STABLE_RESULT": "success",
+              "RC_RELEASE_KIND": "rc",
+              "STABLE_RELEASE_KIND": "stable",
+              "RC_BASE_VERSION": "2.0.0",
+              "STABLE_BASE_VERSION": "2.0.0",
+              "RC_SEMVER": "2.0.0-rc.1",
+              "STABLE_SEMVER": "2.0.0",
+              "RC_PYTHON_VERSION": "2.0.0rc1",
+              "STABLE_PYTHON_VERSION": "2.0.0",
+              "RC_TAG": "v2.0.0-rc.1",
+              "STABLE_TAG": "v2.0.0",
+              "RC_IS_PRERELEASE": "true",
+              "STABLE_IS_PRERELEASE": "false",
+              "RC_RELEASED": "false",
+              "STABLE_RELEASED": "false",
+          }
+          mismatches = [key for key, value in expected.items() if os.environ.get(key) != value]
+          if mismatches:
+              raise SystemExit('Reusable release contract mismatched: ' + ', '.join(mismatches))
+          print('Verified both successful dry runs and the exact string outputs per mode.')
+          PY

@@ -11,7 +11,8 @@ Organization-level GitHub defaults and standards for all repositories in `alpini
   - `SUPPORT.md`
 - Organization-wide issue and pull request templates
 - Organization-wide workflow templates for new repositories
-  - public starter templates only; canonical workflow logic lives in `.github-private`
+  - branded starters for organization repositories that call the private catalog in `.github-private`
+- Public reusable workflows for policy, Python quality, release identity, and stable GitHub Release creation; see `docs/public-ci-and-release-reusables.md`
 - Public-safe workflow starter adoption guidance
 
 ## Atomic design model used here
@@ -59,6 +60,23 @@ The default quality workflow's
 `run_pre_commit: false` setting does not disable the updater's schedule. See the
 [central updater guide](https://github.com/alpininsight/.github-private/blob/develop/docs/ci-workflows/scheduled-pre-commit-update-reusable.md)
 and [issue #717](https://github.com/alpininsight/.github-private/issues/717).
+
+## Public reusable workflows
+
+Public product repositories can call the reusable workflows in
+`.github/workflows/` directly. Pin each `uses:` line to a reviewed commit
+SHA of this repository. These workflows run on GitHub-hosted Ubuntu and do
+not use the private catalog.
+
+| Workflow | Purpose |
+|----------|---------|
+| `repository-policy.yml` | Branch routing and Conventional Commit policy |
+| `python-quality.yml` | Python quality matrix, Gitleaks, and a quality gate |
+| `release-version-contract.yml` | RC and stable version identity without publication |
+| `create-release.yml` | Publish or reuse a GitHub Release on an exact source SHA |
+
+Adoption notes, inputs, and the shareable Renovate pre-commit preset are in
+[`docs/public-ci-and-release-reusables.md`](docs/public-ci-and-release-reusables.md).
 
 ## Notes
 

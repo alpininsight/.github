@@ -1,0 +1,41 @@
+name: Create a reviewed GitHub Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_kind:
+        type: choice
+        options: [rc, stable]
+        default: stable
+      target_version:
+        type: string
+        required: true
+      rc_number:
+        type: string
+        default: '1'
+      checkout_ref:
+        description: 40-character lowercase source SHA. Defaults to the dispatch commit when left empty.
+        type: string
+        required: false
+      create:
+        type: boolean
+        default: false
+
+permissions: {}
+
+jobs:
+  release:
+    permissions:
+      contents: write
+    # Preparation placeholder: replace the revision and both script digests
+    # with the same independently reviewed public commit before adoption.
+    uses: alpininsight/.github/.github/workflows/create-release.yml@0000000000000000000000000000000000000000
+    with:
+      release_kind: ${{ inputs.release_kind }}
+      target_version: ${{ inputs.target_version }}
+      rc_number: ${{ inputs.rc_number }}
+      checkout_ref: ${{ inputs.checkout_ref || github.sha }}
+      create: ${{ inputs.create }}
+      contract_revision: '0000000000000000000000000000000000000000'
+      contract_sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+      release_sha256: '0000000000000000000000000000000000000000000000000000000000000000'

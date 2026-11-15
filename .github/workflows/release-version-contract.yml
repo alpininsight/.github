@@ -9,6 +9,7 @@ on:
       - workflow-templates/insight-ui-release-contract.properties.json
       - scripts/release_version_contract.py
       - scripts/test_release_version_contract.py
+      - scripts/test_workflow_python_isolation.py
       - docs/insight-ui-release-contract.md
   workflow_call:
     inputs:
@@ -61,7 +62,9 @@ jobs:
         with:
           persist-credentials: false
       - name: Run the six pure version tests
-        run: python3 -B -m unittest discover -s scripts -p test_release_version_contract.py -v
+        run: |
+          python3 -I -B -m unittest discover -s scripts -p test_release_version_contract.py -v
+          python3 -I -B -m unittest discover -s scripts -p test_workflow_python_isolation.py -v
 
   version:
     # No input key exists for this file's own PR event. Checking key presence
@@ -88,7 +91,7 @@ jobs:
           CONTRACT_SHA256: ${{ inputs.contract_sha256 }}
         shell: bash
         run: |
-          python3 - <<'PY'
+          python3 -I - <<'PY'
           import hashlib, os, re, subprocess, sys, tempfile, urllib.request
           revision = os.environ['CONTRACT_REVISION']
           digest = os.environ['CONTRACT_SHA256']
@@ -105,5 +108,5 @@ jobs:
               from pathlib import Path
               path = Path(directory) / 'release_version_contract.py'
               path.write_bytes(code)
-              subprocess.run([sys.executable, str(path)], check=True)
+              subprocess.run([sys.executable, '-I', '-B', str(path)], check=True)
           PY

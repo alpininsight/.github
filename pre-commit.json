@@ -1,0 +1,9 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": [
+    "Enable Renovate's pre-commit manager so hook revisions in .pre-commit-config.yaml receive update pull requests."
+  ],
+  "pre-commit": {
+    "enabled": true
+  }
+}
