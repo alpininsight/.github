@@ -31,6 +31,7 @@ class FakeAPI(GitHubReleaseAPI):
         self.race_release = dict(race_release) if race_release else None
         self.writes = []
         self.annotated = {}
+        self.listed_releases = []
 
     def request(self, repository, method, path, payload=None):
         if method != "GET":
@@ -46,7 +47,7 @@ class FakeAPI(GitHubReleaseAPI):
                 return 404, {}
             return 200, {"sha": sha, "object": obj}
         if path.startswith("releases/tags/"):
-            if self.release is None:
+            if self.release is None or self.release.get("draft") is True:
                 return 404, {"message": "Not Found"}
             return 200, self.release
         if method == "POST" and path == "git/refs":
@@ -67,6 +68,12 @@ class FakeAPI(GitHubReleaseAPI):
                 return 201, self.release
             return self.create_release_code, {}
         raise AssertionError(f"unexpected {method} {path}")
+
+    def list_releases(self, repository):
+        releases = list(self.listed_releases)
+        if self.release is not None:
+            releases.append(self.release)
+        return releases
 
 
 class CreateReleaseTests(unittest.TestCase):
@@ -144,11 +151,13 @@ class CreateReleaseTests(unittest.TestCase):
             tag_sha=SOURCE,
             release={"id": 3, "tag_name": "v2.0.0", "draft": True, "prerelease": False, "published_at": None},
         )
+        self.assertEqual(api.request(REPO, "GET", "releases/tags/v2.0.0")[0], 404)
         with self.assertRaisesRegex(ReleaseError, "identity or state is invalid"):
             plan_release(
                 "stable", "2.0.0", repository=REPO, source=SOURCE, create=True,
                 event_name="workflow_dispatch", require_main=False, api=api,
             )
+        self.assertEqual(api.writes, [])
 
     def test_prerelease_mismatch_fails_closed(self):
         api = FakeAPI(
@@ -194,6 +203,22 @@ class CreateReleaseTests(unittest.TestCase):
             tag_sha=SOURCE,
             release={"id": 3, "tag_name": "v2.0.0", "draft": True, "prerelease": False, "published_at": None},
         )
+        # GitHub's releases/tags lookup 404s for drafts; the list API still returns them.
+        self.assertEqual(api.request(REPO, "GET", "releases/tags/v2.0.0")[0], 404)
+        with self.assertRaisesRegex(ReleaseError, "identity or state is invalid"):
+            plan_release("stable", "2.0.0", repository=REPO, source=SOURCE, create=False, api=api)
+        self.assertEqual(api.writes, [])
+
+    def test_dry_run_rejects_draft_found_only_in_paginated_list(self):
+        api = FakeAPI(tag_sha=SOURCE)
+        api.listed_releases = [
+            {"id": i, "tag_name": f"v1.{i}.0", "draft": False, "prerelease": False, "published_at": "2026-01-01T00:00:00Z"}
+            for i in range(1, 101)
+        ]
+        api.listed_releases.append(
+            {"id": 999, "tag_name": "v2.0.0", "draft": True, "prerelease": False, "published_at": None}
+        )
+        self.assertEqual(api.request(REPO, "GET", "releases/tags/v2.0.0")[0], 404)
         with self.assertRaisesRegex(ReleaseError, "identity or state is invalid"):
             plan_release("stable", "2.0.0", repository=REPO, source=SOURCE, create=False, api=api)
         self.assertEqual(api.writes, [])

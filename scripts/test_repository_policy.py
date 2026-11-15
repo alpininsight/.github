@@ -30,19 +30,38 @@ def pr(*, title="feat: add cache", head="feat/cache", base="develop", author="al
 
 
 class FakeClient(PolicyClient):
-    def __init__(self, commits=None, parents=None, status="ahead", fail_list=False, fail_parents=False, fail_compare=False):
+    def __init__(
+        self,
+        commits=None,
+        parents=None,
+        status="ahead",
+        fail_list=False,
+        fail_parents=False,
+        fail_compare=False,
+        commit_count=None,
+        fail_count=False,
+    ):
         self.commits = [Commit(SHA1, 1, "feat: add cache")] if commits is None else list(commits)
         self.parents = parents or {SHA2: [SHA1, SHA3]}
         self.status = status
         self.fail_list = fail_list
         self.fail_parents = fail_parents
         self.fail_compare = fail_compare
+        self.commit_count = commit_count
+        self.fail_count = fail_count
         self.compares = []
 
     def list_commits(self, repository, pr_number):
         if self.fail_list:
             raise RuntimeError("boom")
         return list(self.commits)
+
+    def pull_commit_count(self, repository, pr_number):
+        if self.fail_count:
+            raise RuntimeError("boom")
+        if self.commit_count is not None:
+            return self.commit_count
+        return len(self.commits)
 
     def commit_parents(self, repository, sha):
         if self.fail_parents:
@@ -123,9 +142,14 @@ class RepositoryPolicyTests(unittest.TestCase):
         self.assertFalse(result.ok)
 
     def test_promotion_allows_github_merge_headlines(self):
-        client = FakeClient(commits=[Commit(SHA1, 2, "Merge pull request #9 from alpininsight/develop")])
+        client = FakeClient(
+            commits=[Commit(SHA2, 2, "Merge pull request #9 from alpininsight/develop")],
+            parents={SHA2: [SHA1, SHA3]},
+            status="ahead",
+        )
         result = evaluate(pr(title="chore(release): 2.0.0", head="develop", base="main"), PolicyConfig(), client)
         self.assertTrue(result.ok, result.failures)
+        self.assertEqual(client.compares, [(SHA3, "develop")])
 
     def test_develop_sync_merge_requires_two_parents_in_develop(self):
         client = FakeClient(
@@ -203,6 +227,39 @@ class RepositoryPolicyTests(unittest.TestCase):
         result = evaluate(pr(), PolicyConfig(), FakeClient(commits=[]))
         self.assertFalse(result.ok)
         self.assertTrue(any("no PR commit headlines" in item for item in result.failures))
+
+    def test_single_parent_develop_sync_headline_is_rejected(self):
+        client = FakeClient(commits=[Commit(SHA1, 1, "Merge branch 'develop' into feat/cache")])
+        result = evaluate(pr(), PolicyConfig(), client)
+        self.assertFalse(result.ok)
+        self.assertTrue(any("real merge commit" in item for item in result.failures))
+
+    def test_single_parent_develop_sync_pr_headline_is_rejected(self):
+        client = FakeClient(
+            commits=[Commit(SHA1, 1, "Merge pull request #9 from alpininsight/develop")],
+        )
+        result = evaluate(pr(), PolicyConfig(), client)
+        self.assertFalse(result.ok)
+        self.assertTrue(any("real merge commit" in item for item in result.failures))
+
+    def test_single_parent_promotion_github_merge_headline_is_rejected(self):
+        client = FakeClient(
+            commits=[Commit(SHA1, 1, "Merge pull request #9 from alpininsight/develop")],
+        )
+        result = evaluate(pr(title="chore(release): 2.0.0", head="develop", base="main"), PolicyConfig(), client)
+        self.assertFalse(result.ok)
+        self.assertTrue(any("real merge commit" in item for item in result.failures))
+
+    def test_truncated_commit_listing_fails_closed(self):
+        listed = [Commit(SHA1, 1, "feat: add cache")]
+        result = evaluate(pr(), PolicyConfig(), FakeClient(commits=listed, commit_count=251))
+        self.assertFalse(result.ok)
+        self.assertTrue(any("incomplete" in item and "251" in item for item in result.failures))
+
+    def test_commit_count_errors_fail_closed(self):
+        result = evaluate(pr(), PolicyConfig(), FakeClient(fail_count=True))
+        self.assertFalse(result.ok)
+        self.assertTrue(any("commit count" in item for item in result.failures))
 
 
 if __name__ == "__main__":

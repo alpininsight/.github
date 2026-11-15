@@ -96,8 +96,9 @@ The calling job must grant `contents: write`, because the reusable declares
 a publication job with that permission. `create: false` still does not write
 a tag or release. When `checkout_ref` is set, the identity job also reads any
 existing tag or release and fails closed if the tag points at another commit,
-the release is a draft, the prerelease flag does not match, or a release
-exists without a source tag. When `create` is true, `checkout_ref` must be the
+the release is a draft (drafts are found by listing releases, because
+the tag lookup does not return them), the prerelease flag does not match, or a
+release exists without a source tag. When `create` is true, `checkout_ref` must be the
 40-character lowercase source SHA, and that SHA must be the current commit
 of `refs/heads/main` unless `require_main` is false. Creation is refused on
 `pull_request` and `merge_group` events.

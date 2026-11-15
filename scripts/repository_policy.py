@@ -83,11 +83,53 @@ class PolicyClient:
     def list_commits(self, repository: str, pr_number: str) -> list[Commit]:
         raise NotImplementedError
 
+    def pull_commit_count(self, repository: str, pr_number: str) -> int:
+        raise NotImplementedError
+
     def commit_parents(self, repository: str, sha: str) -> list[str]:
         raise NotImplementedError
 
     def compare_status(self, repository: str, base: str, head: str) -> str:
         raise NotImplementedError
+
+
+def verify_develop_source_merge(
+    commit: Commit,
+    client: PolicyClient,
+    repository: str,
+    develop_branch: str,
+) -> str | None:
+    """Return a failure message, or None if this is a real two-parent merge from develop."""
+    if not isinstance(commit.parent_count, int) or commit.parent_count <= 1:
+        return (
+            f"Synchronization or promotion merge '{commit.headline}' ({commit.sha}) "
+            f"must be a real merge commit; found {commit.parent_count} parent(s)."
+        )
+    try:
+        parents = client.commit_parents(repository, commit.sha)
+    except (RuntimeError, ValueError, OSError):
+        return (
+            f"Unable to verify parents for develop synchronization merge "
+            f"'{commit.headline}' ({commit.sha}); failing closed."
+        )
+    if len(parents) != 2:
+        return (
+            f"Develop synchronization merge '{commit.headline}' ({commit.sha}) "
+            f"must have exactly two parents; found {len(parents)}."
+        )
+    try:
+        status = client.compare_status(repository, parents[1], develop_branch)
+    except (RuntimeError, ValueError, OSError):
+        return (
+            f"Unable to verify that develop synchronization merge '{commit.headline}' "
+            f"({commit.sha}) uses '{develop_branch}' history; failing closed."
+        )
+    if status not in {"ahead", "identical"}:
+        return (
+            f"Develop synchronization merge '{commit.headline}' ({commit.sha}) second "
+            f"parent is not in '{develop_branch}' history (compare status: '{status}')."
+        )
+    return None
 
 
 def compile_regex(pattern: str, label: str) -> re.Pattern[str]:
@@ -259,6 +301,23 @@ def evaluate(event: PolicyEvent, config: PolicyConfig, client: PolicyClient | No
                 fetch_failed = True
             if not fetch_failed and not commits:
                 failures.append("GitHub returned no PR commit headlines; failing closed.")
+            if not fetch_failed:
+                try:
+                    expected = client.pull_commit_count(event.repository, event.pr_number)
+                except (RuntimeError, ValueError, OSError, TypeError):
+                    failures.append(
+                        "Unable to verify the PR commit count from GitHub; failing closed."
+                    )
+                else:
+                    if not isinstance(expected, int) or expected < 1:
+                        failures.append(
+                            "GitHub returned an invalid PR commit count; failing closed."
+                        )
+                    elif len(commits) != expected:
+                        failures.append(
+                            f"PR commit listing is incomplete ({len(commits)} headlines, "
+                            f"{expected} commits declared); failing closed."
+                        )
 
             owner = event.head_repository.split("/", 1)[0] if event.head_repository else ""
             develop_sync = re.compile(rf"^Merge branch '{re.escape(config.develop_branch)}' into .+")
@@ -272,43 +331,23 @@ def evaluate(event: PolicyEvent, config: PolicyConfig, client: PolicyClient | No
             for commit in commits:
                 if is_main_realignment:
                     continue
-                if is_release_promotion and GITHUB_MERGE.search(commit.headline):
-                    continue
-                if allow_develop_sync_merge_headlines and develop_sync.search(commit.headline):
-                    continue
-                if allow_develop_sync_merge_headlines and develop_remote_sync.search(commit.headline):
-                    try:
-                        parents = client.commit_parents(event.repository, commit.sha)
-                    except (RuntimeError, ValueError, OSError):
-                        failures.append(
-                            f"Unable to verify parents for develop synchronization merge "
-                            f"'{commit.headline}' ({commit.sha}); failing closed."
+                develop_sync_headline = bool(
+                    (is_release_promotion and GITHUB_MERGE.search(commit.headline))
+                    or (
+                        allow_develop_sync_merge_headlines
+                        and (
+                            develop_sync.search(commit.headline)
+                            or develop_remote_sync.search(commit.headline)
+                            or develop_sync_pr.search(commit.headline)
                         )
-                        continue
-                    if len(parents) != 2:
-                        failures.append(
-                            f"Develop synchronization merge '{commit.headline}' ({commit.sha}) "
-                            f"must have exactly two parents; found {len(parents)}."
-                        )
-                        continue
-                    try:
-                        status = client.compare_status(
-                            event.repository, parents[1], config.develop_branch
-                        )
-                    except (RuntimeError, ValueError, OSError):
-                        failures.append(
-                            f"Unable to verify that develop synchronization merge '{commit.headline}' "
-                            f"({commit.sha}) uses '{config.develop_branch}' history; failing closed."
-                        )
-                        continue
-                    if status not in {"ahead", "identical"}:
-                        failures.append(
-                            f"Develop synchronization merge '{commit.headline}' ({commit.sha}) second "
-                            f"parent is not in '{config.develop_branch}' history (compare status: '{status}')."
-                        )
-                        continue
-                    continue
-                if allow_develop_sync_merge_headlines and develop_sync_pr.search(commit.headline):
+                    )
+                )
+                if develop_sync_headline:
+                    error = verify_develop_source_merge(
+                        commit, client, event.repository, config.develop_branch
+                    )
+                    if error:
+                        failures.append(error)
                     continue
                 if commit.parent_count > 1 and MERGE_HEADLINE.search(commit.headline):
                     continue
@@ -398,6 +437,18 @@ class GhPolicyClient(PolicyClient):
                 raise RuntimeError("Invalid commit SHA in pull request listing")
             commits.append(Commit(sha=sha, parent_count=int(parent_count), headline=headline))
         return commits
+
+    def pull_commit_count(self, repository: str, pr_number: str) -> int:
+        if not REPO.fullmatch(repository) or not re.fullmatch(r"[0-9]+", pr_number):
+            raise ValueError("Invalid repository or pull request number")
+        raw = self._api(f"repos/{repository}/pulls/{pr_number}", ".commits")
+        try:
+            count = int(raw.strip())
+        except ValueError as error:
+            raise RuntimeError("Invalid pull request commit count") from error
+        if count < 1:
+            raise RuntimeError("Invalid pull request commit count")
+        return count
 
     def commit_parents(self, repository: str, sha: str) -> list[str]:
         if not REPO.fullmatch(repository) or SHA.fullmatch(sha) is None:

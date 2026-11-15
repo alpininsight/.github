@@ -6,6 +6,8 @@ on:
     paths:
       - .github/workflows/python-quality.yml
       - docs/public-ci-and-release-reusables.md
+      - scripts/test_quality_command_runner.py
+      - scripts/test_pre_commit_gitleaks_filter.py
   workflow_call:
     inputs:
       python_versions:
@@ -92,6 +94,10 @@ jobs:
           assert 'workflow_call:' in text
           assert 'name: Gitleaks' in text
           PY
+      - name: Run the quality helper tests
+        run: |
+          python3 -B -m unittest discover -s scripts -p test_quality_command_runner.py -v
+          python3 -B -m unittest discover -s scripts -p test_pre_commit_gitleaks_filter.py -v
 
   quality:
     name: Quality (${{ matrix.python_version }})
@@ -146,6 +152,7 @@ jobs:
             awk '
               /^  - repo: https:\/\/github.com\/gitleaks\/gitleaks$/ { skip = 1; next }
               skip && /^  - repo: / { skip = 0 }
+              skip && /^[^[:space:]]/ { skip = 0 }
               !skip { print }
             ' .pre-commit-config.yaml > "$RUNNER_TEMP/pre-commit-config.yaml"
             mv "$RUNNER_TEMP/pre-commit-config.yaml" .pre-commit-config.yaml
@@ -154,27 +161,27 @@ jobs:
         if: inputs.run_pre_commit && inputs.pre_commit_command != ''
         env:
           CMD: ${{ inputs.pre_commit_command }}
-        run: bash -c "$CMD"
+        run: bash -euo pipefail -c "$CMD"
       - name: Lint
         if: inputs.lint_command != ''
         env:
           CMD: ${{ inputs.lint_command }}
-        run: bash -c "$CMD"
+        run: bash -euo pipefail -c "$CMD"
       - name: Format check
         if: inputs.format_command != ''
         env:
           CMD: ${{ inputs.format_command }}
-        run: bash -c "$CMD"
+        run: bash -euo pipefail -c "$CMD"
       - name: Django system check
         if: inputs.django_check_command != ''
         env:
           CMD: ${{ inputs.django_check_command }}
-        run: bash -c "$CMD"
+        run: bash -euo pipefail -c "$CMD"
       - name: Tests
         if: inputs.test_command != ''
         env:
           CMD: ${{ inputs.test_command }}
-        run: bash -c "$CMD"
+        run: bash -euo pipefail -c "$CMD"
 
   gitleaks:
     name: Gitleaks

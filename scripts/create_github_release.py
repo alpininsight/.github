@@ -25,6 +25,9 @@ class GitHubReleaseAPI:
     def request(self, repository: str, method: str, path: str, payload: dict | None = None) -> tuple[int, dict | None]:
         raise NotImplementedError
 
+    def list_releases(self, repository: str) -> list[dict]:
+        raise NotImplementedError
+
 
 class GhReleaseAPI(GitHubReleaseAPI):
     def request(self, repository: str, method: str, path: str, payload: dict | None = None) -> tuple[int, dict | None]:
@@ -55,6 +58,26 @@ class GhReleaseAPI(GitHubReleaseAPI):
         except (ValueError, TypeError) as error:
             raise ReleaseError("Malformed release API response") from error
         return code, data if isinstance(data, dict) else None
+
+    def list_releases(self, repository: str) -> list[dict]:
+        if not REPO.fullmatch(repository):
+            raise ReleaseError("Invalid immutable release source")
+        result = subprocess.run(
+            ["gh", "api", "--paginate", "--method", "GET", f"repos/{repository}/releases"],
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=60,
+        )
+        if result.returncode:
+            raise ReleaseError("Authenticated release API request failed")
+        try:
+            data = json.loads(result.stdout or "[]")
+        except (ValueError, TypeError) as error:
+            raise ReleaseError("Malformed release API response") from error
+        if not isinstance(data, list) or any(not isinstance(item, dict) for item in data):
+            raise ReleaseError("Malformed release API response")
+        return data
 
 
 def as_bool(value: object) -> bool:
@@ -87,22 +110,37 @@ def resolve_tag_commit(api: GitHubReleaseAPI, repository: str, tag: str) -> str 
     raise ReleaseError("Release tag nesting limit exceeded")
 
 
+def _valid_published_release(data: dict, tag: str, prerelease: bool) -> bool:
+    return (
+        data.get("tag_name") == tag
+        and type(data.get("id")) is int
+        and data["id"] > 0
+        and data.get("draft") is False
+        and data.get("prerelease") is prerelease
+        and bool(data.get("published_at"))
+    )
+
+
 def existing_release(api: GitHubReleaseAPI, repository: str, tag: str, prerelease: bool) -> int | None:
+    # GET releases/tags/<tag> omits drafts (404). Always list releases too.
     code, data = api.request(repository, "GET", f"releases/tags/{quote(tag, safe='')}")
-    if code == 404:
-        return None
-    if (
-        code != 200
-        or not isinstance(data, dict)
-        or data.get("tag_name") != tag
-        or type(data.get("id")) is not int
-        or data["id"] <= 0
-        or data.get("draft") is not False
-        or data.get("prerelease") is not prerelease
-        or not data.get("published_at")
-    ):
+    if code not in (200, 404):
         raise ReleaseError("Existing release identity or state is invalid")
-    return data["id"]
+    listed = api.list_releases(repository)
+    matches = [item for item in listed if item.get("tag_name") == tag]
+    if any(item.get("draft") is True for item in matches):
+        raise ReleaseError("Existing release identity or state is invalid")
+    published = data if code == 200 and isinstance(data, dict) else None
+    if published is None:
+        published_matches = [item for item in matches if item.get("draft") is False]
+        if not published_matches:
+            return None
+        if len(published_matches) != 1:
+            raise ReleaseError("Existing release identity or state is invalid")
+        published = published_matches[0]
+    if not isinstance(published, dict) or not _valid_published_release(published, tag, prerelease):
+        raise ReleaseError("Existing release identity or state is invalid")
+    return published["id"]
 
 
 def publish(
