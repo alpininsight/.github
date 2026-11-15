@@ -92,7 +92,8 @@ class WorkflowPythonIsolationTests(unittest.TestCase):
         self.assertIn("path: source", text)
         self.assertNotIn("\n          path: .\n", text)
         self.assertIn("'git', '-C', str(workspace / 'source'), 'rev-parse'", text)
-        self.assertIn("[sys.executable, '-I', '-B', str(directory / 'create_github_release.py')]", text)
+        self.assertIn("sys.path.insert(0, str(directory))", text)
+        self.assertIn("runpy.run_path(str(directory / 'create_github_release.py'), run_name='__main__')", text)
         self.assertNotIn("env['PYTHONPATH']", text)
         self.assertNotIn("raw.githubusercontent.com/alpininsight/.github/{revision}", text)
 

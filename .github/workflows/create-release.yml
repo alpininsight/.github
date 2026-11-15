@@ -131,7 +131,7 @@ jobs:
         run: |
           cd "$RUNNER_TEMP"
           python3 -I - <<'PY'
-          import hashlib, os, re, subprocess, sys, tempfile
+          import hashlib, os, re, runpy, subprocess, sys, tempfile
           from pathlib import Path
 
           revision = os.environ['CONTRACT_REVISION']
@@ -152,10 +152,10 @@ jobs:
               if len(code) > 262144 or hashlib.sha256(code).hexdigest() != digest:
                   raise SystemExit(f'Public contract content does not match its reviewed digest: {path}')
               (directory / Path(path).name).write_bytes(code)
-          subprocess.run(
-              [sys.executable, '-I', '-B', str(directory / 'create_github_release.py')],
-              check=True,
-          )
+          # Isolated mode implies -P on current GitHub-hosted Python, so the
+          # script directory is not on sys.path. Load only the verified copies.
+          sys.path.insert(0, str(directory))
+          runpy.run_path(str(directory / 'create_github_release.py'), run_name='__main__')
           PY
 
   publish:
@@ -204,7 +204,7 @@ jobs:
         run: |
           cd "$RUNNER_TEMP"
           python3 -I - <<'PY'
-          import hashlib, os, re, subprocess, sys, tempfile
+          import hashlib, os, re, runpy, subprocess, sys, tempfile
           from pathlib import Path
 
           revision = os.environ['CONTRACT_REVISION']
@@ -241,8 +241,8 @@ jobs:
                   check=True, capture_output=True, text=True, timeout=45,
               )
               os.environ['MAIN_SHA'] = result.stdout.strip()
-          subprocess.run(
-              [sys.executable, '-I', '-B', str(directory / 'create_github_release.py')],
-              check=True,
-          )
+          # Isolated mode implies -P on current GitHub-hosted Python, so the
+          # script directory is not on sys.path. Load only the verified copies.
+          sys.path.insert(0, str(directory))
+          runpy.run_path(str(directory / 'create_github_release.py'), run_name='__main__')
           PY
