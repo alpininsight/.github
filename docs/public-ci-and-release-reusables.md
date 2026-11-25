@@ -32,6 +32,13 @@ Default-off exceptions exist for a narrowly named main realignment branch,
 a single named bot into `main`, and a develop history-reconciliation branch.
 A misconfigured bot exception fails closed.
 
+Public callers can opt in with `allow_develop_fork_prs: true` while keeping
+prefix enforcement enabled. GitHub must identify the base as public and the
+head as a fork. Forks use the same branch prefixes, titles and commit rules
+as other contributions. Release promotions into `main` still use the
+upstream `develop` branch. Run contributor workflows on `pull_request` with
+read-only permissions and no repository secrets.
+
 Required inputs: `policy_revision`, `policy_sha256`.
 
 This repository itself uses only `main`, so its pull requests are not
