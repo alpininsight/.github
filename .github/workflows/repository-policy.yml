@@ -20,13 +20,17 @@ on:
         type: string
         default: develop
       enforce_develop_source_branch_prefixes:
-        description: Require same-repository heads into develop to use an approved prefix.
+        description: Require heads into develop to use an approved prefix.
         type: boolean
         default: true
       develop_source_branch_prefix_regex:
-        description: Bash-compatible regex for approved same-repository heads into develop.
+        description: Regex for approved head branches into develop.
         type: string
         default: '^(build|chore|ci|dependabot|docs|feat|feature|fix|perf|refactor|renovate|revert|style|test)/.+$'
+      allow_develop_fork_prs:
+        description: Admit GitHub fork pull requests into develop for a public caller, with the ordinary prefix and commit rules.
+        type: boolean
+        default: false
       allow_develop_history_reconciliation:
         description: Allow a narrowly named same-repository main-history reconciliation pull request into develop.
         type: boolean
@@ -141,10 +145,13 @@ jobs:
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
           BASE_REPOSITORY: ${{ github.event.pull_request.base.repo.full_name }}
           HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REPOSITORY_PRIVATE: ${{ toJSON(github.event.pull_request.base.repo.private) }}
+          HEAD_REPOSITORY_FORK: ${{ toJSON(github.event.pull_request.head.repo.fork) }}
           MAIN_BRANCH: ${{ inputs.main_branch }}
           DEVELOP_BRANCH: ${{ inputs.develop_branch }}
           ENFORCE_DEVELOP_SOURCE_BRANCH_PREFIXES: ${{ inputs.enforce_develop_source_branch_prefixes }}
           DEVELOP_SOURCE_BRANCH_PREFIX_REGEX: ${{ inputs.develop_source_branch_prefix_regex }}
+          ALLOW_DEVELOP_FORK_PRS: ${{ inputs.allow_develop_fork_prs }}
           ALLOW_DEVELOP_HISTORY_RECONCILIATION: ${{ inputs.allow_develop_history_reconciliation }}
           DEVELOP_HISTORY_RECONCILIATION_HEAD_REGEX: ${{ inputs.develop_history_reconciliation_head_regex }}
           REQUIRE_CONVENTIONAL_TITLE: ${{ inputs.require_conventional_title }}

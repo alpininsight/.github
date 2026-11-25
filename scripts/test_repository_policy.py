@@ -4,7 +4,15 @@ from __future__ import annotations
 
 import unittest
 
-from repository_policy import Commit, PolicyClient, PolicyConfig, PolicyEvent, evaluate
+from repository_policy import (
+    Commit,
+    PolicyClient,
+    PolicyConfig,
+    PolicyEvent,
+    config_from_env,
+    evaluate,
+    event_from_env,
+)
 
 
 REPO = "alpininsight/example"
@@ -101,8 +109,56 @@ class RepositoryPolicyTests(unittest.TestCase):
         self.assertFalse(result.ok)
 
     def test_develop_from_a_fork_fails(self):
-        result = evaluate(pr(head_repository="other/example"), PolicyConfig(), FakeClient())
+        result = evaluate(
+            pr(head_repository="other/example", base_repository_public=True, head_repository_fork=True),
+            PolicyConfig(),
+            FakeClient(),
+        )
         self.assertFalse(result.ok)
+
+    def test_public_fork_can_contribute_after_opt_in(self):
+        result = evaluate(
+            pr(head_repository="other/example", base_repository_public=True, head_repository_fork=True),
+            PolicyConfig(allow_develop_fork_prs=True),
+            FakeClient(),
+        )
+        self.assertTrue(result.ok, result.failures)
+        self.assertFalse(result.allow_develop_sync_merge_headlines)
+
+    def test_fork_opt_in_preserves_routing_and_title_checks(self):
+        config = PolicyConfig(allow_develop_fork_prs=True)
+        fork = dict(
+            head_repository="other/example",
+            base_repository_public=True,
+            head_repository_fork=True,
+        )
+        cases = [
+            {"base": "main", "head": "develop"},
+            {"head": "no-prefix"},
+            {"title": "Add cache"},
+            {"base_repository_public": False},
+            {"head_repository_fork": False},
+            {"head_repository": ""},
+            {"base_repository": "other/base"},
+        ]
+        for override in cases:
+            with self.subTest(override=override):
+                self.assertFalse(evaluate(pr(**(fork | override)), config, FakeClient()).ok)
+
+        client = FakeClient(commits=[Commit(SHA1, 1, "wip")])
+        result = evaluate(pr(**fork), config, client)
+        self.assertFalse(result.ok)
+        self.assertTrue(any("Commit headline" in failure for failure in result.failures))
+
+    def test_fork_payload_requires_explicit_github_booleans(self):
+        env = {"ALLOW_DEVELOP_FORK_PRS": "true", "BASE_REPOSITORY_PRIVATE": "false", "HEAD_REPOSITORY_FORK": "true"}
+        self.assertTrue(config_from_env(env).allow_develop_fork_prs)
+        self.assertFalse(config_from_env({}).allow_develop_fork_prs)
+        self.assertTrue(event_from_env(env).base_repository_public)
+        self.assertTrue(event_from_env(env).head_repository_fork)
+        missing = event_from_env({"BASE_REPOSITORY_PRIVATE": "null", "HEAD_REPOSITORY_FORK": "null"})
+        self.assertFalse(missing.base_repository_public)
+        self.assertFalse(missing.head_repository_fork)
 
     def test_main_from_develop_is_a_release_promotion(self):
         result = evaluate(pr(title="chore(release): 2.0.0", head="develop", base="main"), PolicyConfig(), FakeClient())

@@ -46,6 +46,8 @@ class PolicyEvent:
     head_ref: str = ""
     base_repository: str = ""
     head_repository: str = ""
+    base_repository_public: bool = False
+    head_repository_fork: bool = False
 
 
 @dataclass
@@ -56,6 +58,7 @@ class PolicyConfig:
     develop_source_branch_prefix_regex: str = (
         r"^(build|chore|ci|dependabot|docs|feat|feature|fix|perf|refactor|renovate|revert|style|test)/.+$"
     )
+    allow_develop_fork_prs: bool = False
     allow_develop_history_reconciliation: bool = False
     develop_history_reconciliation_head_regex: str = r"^chore/sync-main-into-develop-[0-9]{8}$"
     require_conventional_title: bool = True
@@ -234,8 +237,17 @@ def evaluate(event: PolicyEvent, config: PolicyConfig, client: PolicyClient | No
     ):
         failures.append(f"PRs from '{config.main_branch}' back into '{config.develop_branch}' are not allowed.")
     elif event.base_ref == config.develop_branch and config.enforce_develop_source_branch_prefixes:
+        same_repository = event.head_repository == event.base_repository
+        public_fork_allowed = (
+            config.allow_develop_fork_prs
+            and event.event_name == "pull_request"
+            and event.base_repository == event.repository
+            and event.base_repository_public
+            and event.head_repository_fork
+            and REPO.fullmatch(event.head_repository) is not None
+        )
         prefix_ok = False
-        if event.head_repository == event.base_repository and config.develop_source_branch_prefix_regex:
+        if (same_repository or public_fork_allowed) and config.develop_source_branch_prefix_regex:
             try:
                 prefix_pattern = compile_regex(
                     config.develop_source_branch_prefix_regex, "develop_source_branch_prefix_regex"
@@ -244,7 +256,7 @@ def evaluate(event: PolicyEvent, config: PolicyConfig, client: PolicyClient | No
                 failures.append(str(error))
             else:
                 prefix_ok = prefix_pattern.search(event.head_ref) is not None
-        if event.head_repository != event.base_repository:
+        if not (same_repository or public_fork_allowed):
             failures.append(
                 f"PRs into '{config.develop_branch}' must come from a same-repository branch with an "
                 f"approved prefix. Current source is '{event.head_repository}:{event.head_ref}'."
@@ -380,6 +392,7 @@ def evaluate(event: PolicyEvent, config: PolicyConfig, client: PolicyClient | No
         f"- Head repository: `{event.head_repository}`",
         f"- Enforce develop source branch prefixes: `{str(config.enforce_develop_source_branch_prefixes).lower()}`",
         f"- Develop source branch prefix regex: `{config.develop_source_branch_prefix_regex}`",
+        f"- Allow public fork PRs into develop: `{str(config.allow_develop_fork_prs).lower()}`",
         f"- Develop history reconciliation: `{str(is_develop_history_reconciliation).lower()}`",
         f"- Conventional PR title: `{str(config.require_conventional_title).lower()}`",
         f"- Conventional commit headlines: `{str(config.require_conventional_commits).lower()}`",
@@ -475,6 +488,8 @@ def event_from_env(env: dict[str, str]) -> PolicyEvent:
         head_ref=env.get("HEAD_REF", ""),
         base_repository=env.get("BASE_REPOSITORY", ""),
         head_repository=env.get("HEAD_REPOSITORY", ""),
+        base_repository_public=env.get("BASE_REPOSITORY_PRIVATE") == "false",
+        head_repository_fork=env.get("HEAD_REPOSITORY_FORK") == "true",
     )
 
 
@@ -488,6 +503,7 @@ def config_from_env(env: dict[str, str]) -> PolicyConfig:
         develop_source_branch_prefix_regex=env.get(
             "DEVELOP_SOURCE_BRANCH_PREFIX_REGEX", PolicyConfig.develop_source_branch_prefix_regex
         ),
+        allow_develop_fork_prs=as_bool(env.get("ALLOW_DEVELOP_FORK_PRS", "false")),
         allow_develop_history_reconciliation=as_bool(
             env.get("ALLOW_DEVELOP_HISTORY_RECONCILIATION", "false")
         ),
